@@ -84,8 +84,6 @@ export default function DashboardClient() {
     ];
   }, [health]);
 
-  const intMap = useMemo(() => Object.fromEntries(integraciones.map((i) => [i.nombre, i])), [integraciones]);
-
   async function cargarHealth() {
     setHealthLoading(true);
     try {
