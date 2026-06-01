@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { generarRespuesta } from "@/lib/agente";
-import { enviarInstagramTexto, verificarWebhook } from "@/lib/meta";
+import { enviarFacebookTexto, verificarWebhook } from "@/lib/meta";
 import { guardarDecision, guardarMensaje, obtenerOCrearConversacion, upsertCliente } from "@/lib/db-helpers";
 import { prisma } from "@/lib/prisma";
 
@@ -16,11 +16,15 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const payload = await request.json().catch(() => null);
 
+  if (payload?.object !== "page") {
+    return NextResponse.json({ ok: true, ignored: true });
+  }
+
   try {
     await prisma.eventoMeta.create({
       data: {
-        idEventoMeta: `ig_${Date.now()}_${Math.random().toString(36).slice(2)}`,
-        tipo: "instagram_message",
+        idEventoMeta: `fb_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+        tipo: "facebook_message",
         payload: payload as never
       }
     });
@@ -31,33 +35,32 @@ export async function POST(request: Request) {
   const messaging = payload?.entry?.[0]?.messaging?.[0];
   const texto = messaging?.message?.text;
 
-  if (!texto) {
+  if (!texto || messaging?.message?.is_echo) {
     return NextResponse.json({ ok: true, ignored: true });
   }
 
-  const senderId: string = messaging?.sender?.id ?? "ig_unknown";
+  const senderId: string = messaging?.sender?.id ?? "fb_unknown";
 
   const decision = await generarRespuesta({
-    canal: "instagram",
+    canal: "facebook",
     cliente: senderId,
     texto
   });
 
   try {
     const cliente = await upsertCliente({
-      canal: "instagram",
+      canal: "facebook",
       canalId: senderId
     });
 
     const conversacion = await obtenerOCrearConversacion({
       clienteId: cliente.id,
-      canal: "instagram",
-      threadId: messaging?.thread?.id
+      canal: "facebook"
     });
 
     await guardarMensaje({
       conversacionId: conversacion.id,
-      canal: "instagram",
+      canal: "facebook",
       direccion: "entrante",
       texto,
       idMensajeMeta: messaging?.message?.mid,
@@ -74,19 +77,19 @@ export async function POST(request: Request) {
       requiereHumano: decision.requiereHumano
     });
 
-    const envio = await enviarInstagramTexto({ recipientId: senderId, texto: decision.respuesta });
+    const envio = await enviarFacebookTexto({ recipientId: senderId, texto: decision.respuesta });
 
     if (envio.ok) {
       await guardarMensaje({
         conversacionId: conversacion.id,
-        canal: "instagram",
+        canal: "facebook",
         direccion: "saliente",
         texto: decision.respuesta
       });
     }
   } catch {
-    await enviarInstagramTexto({ recipientId: senderId, texto: decision.respuesta });
+    await enviarFacebookTexto({ recipientId: senderId, texto: decision.respuesta });
   }
 
-  return NextResponse.json({ ok: true, canal: "instagram", decision });
+  return NextResponse.json({ ok: true, canal: "facebook", decision });
 }

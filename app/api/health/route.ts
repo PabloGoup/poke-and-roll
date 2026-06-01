@@ -37,6 +37,9 @@ export async function GET() {
         estaConfigurada("WHATSAPP_ACCESS_TOKEN") &&
         estaConfigurada("WHATSAPP_PHONE_NUMBER_ID") &&
         estaConfigurada("WHATSAPP_BUSINESS_ACCOUNT_ID"),
+      facebook:
+        estaConfigurada("FACEBOOK_PAGE_ID") &&
+        estaConfigurada("FACEBOOK_PAGE_ACCESS_TOKEN"),
       n8n: estaConfigurada("N8N_WEBHOOK_ALERTAS_URL")
     }
   });

@@ -10,6 +10,7 @@ datasource db {
 enum Canal {
   whatsapp
   instagram
+  facebook
 }
 
 enum DireccionMensaje {
@@ -49,6 +50,7 @@ model Cliente {
   id              String         @id @default(cuid())
   instagramId    String?        @unique @map("instagram_id")
   whatsappId     String?        @unique @map("whatsapp_id")
+  facebookId     String?        @unique @map("facebook_id")
   nombre         String?
   telefono       String?
   etiquetas      String[]       @default([])
