@@ -1,0 +1,244 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Canal {
+  whatsapp
+  instagram
+}
+
+enum DireccionMensaje {
+  entrante
+  saliente
+}
+
+enum EstadoConversacion {
+  activa
+  esperando_humano
+  resuelta
+  pausada
+}
+
+enum EstadoContenido {
+  borrador
+  aprobado
+  programado
+  publicado
+  fallido
+}
+
+enum TipoContenido {
+  historia
+  post
+  carrusel
+  reel
+}
+
+enum EstadoAlerta {
+  pendiente
+  enviada
+  fallida
+}
+
+model Cliente {
+  id              String         @id @default(cuid())
+  instagramId    String?        @unique @map("instagram_id")
+  whatsappId     String?        @unique @map("whatsapp_id")
+  nombre         String?
+  telefono       String?
+  etiquetas      String[]       @default([])
+  conversaciones Conversacion[]
+  reclamos       Reclamo[]
+  creadoEn       DateTime       @default(now()) @map("creado_en")
+  actualizadoEn  DateTime       @updatedAt @map("actualizado_en")
+
+  @@map("clientes")
+}
+
+model Conversacion {
+  id                String             @id @default(cuid())
+  clienteId         String             @map("cliente_id")
+  cliente           Cliente            @relation(fields: [clienteId], references: [id])
+  canal             Canal
+  instagramThreadId String?            @map("instagram_thread_id")
+  whatsappThreadId  String?            @map("whatsapp_thread_id")
+  estado            EstadoConversacion @default(activa)
+  ultimaIntencion   String?            @map("ultima_intencion")
+  requiereHumano    Boolean            @default(false) @map("requiere_humano")
+  mensajes          Mensaje[]
+  reclamos          Reclamo[]
+  alertas           Alerta[]
+  decisiones        DecisionAgente[]
+  creadoEn          DateTime           @default(now()) @map("creado_en")
+  actualizadoEn     DateTime           @updatedAt @map("actualizado_en")
+
+  @@index([canal, estado])
+  @@map("conversaciones")
+}
+
+model Mensaje {
+  id                 String           @id @default(cuid())
+  conversacionId     String           @map("conversacion_id")
+  conversacion       Conversacion     @relation(fields: [conversacionId], references: [id])
+  canal              Canal
+  direccion          DireccionMensaje
+  texto              String
+  payloadMeta        Json?            @map("payload_meta")
+  idMensajeMeta      String?          @unique @map("id_mensaje_meta")
+  idMensajeWhatsapp  String?          @unique @map("id_mensaje_whatsapp")
+  creadoEn           DateTime         @default(now()) @map("creado_en")
+
+  @@index([conversacionId, creadoEn])
+  @@map("mensajes")
+}
+
+model MenuProducto {
+  id             String   @id @default(cuid())
+  nombre         String
+  categoria      String
+  descripcion    String?
+  precio         Int
+  disponible     Boolean  @default(true)
+  imagenUrl      String?  @map("imagen_url")
+  creadoEn       DateTime @default(now()) @map("creado_en")
+  actualizadoEn  DateTime @updatedAt @map("actualizado_en")
+
+  @@map("menu_productos")
+}
+
+model Promocion {
+  id           String    @id @default(cuid())
+  nombre       String
+  descripcion  String
+  precio       Int?
+  fechaInicio  DateTime? @map("fecha_inicio")
+  fechaFin     DateTime? @map("fecha_fin")
+  activa       Boolean   @default(true)
+  condiciones  String?
+
+  @@map("promociones")
+}
+
+model ZonaDespacho {
+  id                String  @id @default(cuid())
+  nombre            String
+  costo             Int
+  tiempoEstimadoMin Int     @map("tiempo_estimado_min")
+  tiempoEstimadoMax Int     @map("tiempo_estimado_max")
+  activa            Boolean @default(true)
+
+  @@map("zonas_despacho")
+}
+
+model HorarioAtencion {
+  id           String  @id @default(cuid())
+  diaSemana    Int     @map("dia_semana")
+  horaApertura String  @map("hora_apertura")
+  horaCierre   String  @map("hora_cierre")
+  activo       Boolean @default(true)
+
+  @@map("horarios_atencion")
+}
+
+model MedioPago {
+  id            String  @id @default(cuid())
+  nombre        String
+  activo        Boolean @default(true)
+  instrucciones String?
+
+  @@map("medios_pago")
+}
+
+model Reclamo {
+  id             String        @id @default(cuid())
+  clienteId      String        @map("cliente_id")
+  cliente        Cliente       @relation(fields: [clienteId], references: [id])
+  conversacionId String        @map("conversacion_id")
+  conversacion   Conversacion  @relation(fields: [conversacionId], references: [id])
+  tipo           String
+  descripcion    String
+  estado         String        @default("abierto")
+  prioridad      String        @default("media")
+  asignadoA      String?       @map("asignado_a")
+  alertas        Alerta[]
+  creadoEn       DateTime      @default(now()) @map("creado_en")
+  actualizadoEn  DateTime      @updatedAt @map("actualizado_en")
+
+  @@map("reclamos")
+}
+
+model Contenido {
+  id                String           @id @default(cuid())
+  tipo              TipoContenido
+  titulo            String
+  copy              String
+  cta               String?
+  estado            EstadoContenido  @default(borrador)
+  fechaProgramada   DateTime?        @map("fecha_programada")
+  idPublicacionMeta String?          @map("id_publicacion_meta")
+  piezas            ContenidoPieza[]
+  creadoEn          DateTime         @default(now()) @map("creado_en")
+  actualizadoEn     DateTime         @updatedAt @map("actualizado_en")
+
+  @@map("contenidos")
+}
+
+model ContenidoPieza {
+  id          String    @id @default(cuid())
+  contenidoId String    @map("contenido_id")
+  contenido   Contenido @relation(fields: [contenidoId], references: [id])
+  orden       Int
+  tipoMedia   String    @map("tipo_media")
+  mediaUrl    String?   @map("media_url")
+  texto       String?
+
+  @@map("contenido_piezas")
+}
+
+model EventoMeta {
+  id            String   @id @default(cuid())
+  idEventoMeta  String   @unique @map("id_evento_meta")
+  tipo          String
+  payload       Json
+  procesado     Boolean  @default(false)
+  error         String?
+  creadoEn      DateTime @default(now()) @map("creado_en")
+
+  @@map("eventos_meta")
+}
+
+model Alerta {
+  id             String        @id @default(cuid())
+  conversacionId String?       @map("conversacion_id")
+  conversacion   Conversacion? @relation(fields: [conversacionId], references: [id])
+  reclamoId      String?       @map("reclamo_id")
+  reclamo        Reclamo?      @relation(fields: [reclamoId], references: [id])
+  canalDestino   String        @map("canal_destino")
+  tipo           String
+  mensaje        String
+  estado         EstadoAlerta  @default(pendiente)
+  payload        Json?
+  creadoEn       DateTime      @default(now()) @map("creado_en")
+  enviadoEn      DateTime?     @map("enviado_en")
+
+  @@map("alertas")
+}
+
+model DecisionAgente {
+  id                String       @id @default(cuid())
+  conversacionId    String?      @map("conversacion_id")
+  conversacion      Conversacion? @relation(fields: [conversacionId], references: [id])
+  agente            String
+  intencion         String
+  entrada           String
+  salida            String
+  decisionSeguridad String       @map("decision_seguridad")
+  creadoEn          DateTime     @default(now()) @map("creado_en")
+
+  @@map("decisiones_agente")
+}
