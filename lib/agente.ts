@@ -36,7 +36,9 @@ const palabrasVenta = ["quiero", "promo", "combo", "comprar", "pedido", "recomie
 const palabrasHorario = ["hora", "horario", "cierran", "abren", "abierto", "cerrado", "cuando abren", "cuando cierran"];
 const palabrasPago = ["pago", "pagar", "transferencia", "tarjeta", "efectivo", "como pago"];
 const palabrasDespacho = ["delivery", "despacho", "envio", "envío", "reparto", "domicilio", "llevan", "mandan"];
+const palabrasRetiro = ["retiro", "retirar", "retiro en local", "retirar en local", "pasar a buscar", "buscar al local"];
 const palabrasQuitarProducto = ["sacar", "quitar", "sin", "no poner", "retirar", "omitir"];
+const palabrasAlergia = ["alergia", "alergica", "alergico", "alérgica", "alérgico", "intolerancia"];
 
 export function clasificarIntencion(texto: string) {
   const n = texto.toLowerCase();
@@ -47,7 +49,7 @@ export function clasificarIntencion(texto: string) {
   if (palabrasVenta.some((p) => n.includes(p))) {
     return { agente: "Ventas", intencion: "venta", requiereHumano: false };
   }
-  if (palabrasHorario.some((p) => n.includes(p)) || palabrasPago.some((p) => n.includes(p)) || palabrasDespacho.some((p) => n.includes(p))) {
+  if (palabrasHorario.some((p) => n.includes(p)) || palabrasPago.some((p) => n.includes(p)) || palabrasDespacho.some((p) => n.includes(p)) || palabrasRetiro.some((p) => n.includes(p))) {
     return { agente: "Atencion al Cliente", intencion: "consulta", requiereHumano: false };
   }
   return { agente: "Atencion al Cliente", intencion: "consulta", requiereHumano: false };
@@ -60,7 +62,56 @@ function detectarPersonas(texto: string) {
 
 function esSolicitudQuitarProducto(texto: string) {
   const normalizado = normalizar(texto);
+  if (/\b(retiro|retirar|retira|retirarlo|retirarla)\s+(en|por)\s+(local|tienda)\b/.test(normalizado)) return false;
+  if (/\b(pasar|voy)\s+a\s+retirar\b/.test(normalizado)) return false;
+  if (/\bsushi\s+sin\s+arroz\b/.test(normalizado)) return false;
   return palabrasQuitarProducto.some((p) => normalizado.includes(normalizar(p)));
+}
+
+function mencionaAlergia(texto: string) {
+  const normalizado = normalizar(texto);
+  return palabrasAlergia.some((p) => normalizado.includes(normalizar(p)));
+}
+
+function esConsultaRetiroLocal(texto: string) {
+  const normalizado = normalizar(texto);
+  return palabrasRetiro.some((p) => normalizado.includes(normalizar(p)));
+}
+
+function esSolicitudCatalogoVisual(texto: string) {
+  const normalizado = normalizar(texto);
+  const pideCatalogoCompleto =
+    /\b(menu|carta|catalogo)\b/.test(normalizado)
+    || normalizado.includes("mandame la carta")
+    || normalizado.includes("enviame la carta")
+    || normalizado.includes("ver la carta")
+    || normalizado.includes("ver el menu")
+    || normalizado.includes("menu completo")
+    || normalizado.includes("catalogo completo");
+  const pidePromociones = /\b(promo|promos|promocion|promociones)\b/.test(normalizado);
+  const pidePrecios = /\b(precios|lista de precios)\b/.test(normalizado);
+  const pideVistaGeneral = normalizado.includes("que tienen")
+    || normalizado.includes("que venden")
+    || normalizado.includes("que opciones tienen");
+  const preguntaEspecifica = /\b(recomiend|recomendar|roll|rolls|poke|pokes|sushi|burger|hand roll|aperitivo|spicy|picante|palta|salmon|camaron|pollo|vegetarian)\b/.test(normalizado)
+    || normalizado.includes("que tienen con")
+    || normalizado.includes("cuanto vale")
+    || normalizado.includes("cuanto cuesta");
+
+  if (preguntaEspecifica && !pideCatalogoCompleto && !pidePromociones && !pidePrecios) return false;
+
+  return pideCatalogoCompleto || pidePromociones || pidePrecios || pideVistaGeneral;
+}
+
+function esSolicitudCatalogoCompleto(texto: string) {
+  const normalizado = normalizar(texto);
+  return /\b(menu|carta|catalogo)\b/.test(normalizado)
+    || normalizado.includes("mandame la carta")
+    || normalizado.includes("enviame la carta")
+    || normalizado.includes("ver la carta")
+    || normalizado.includes("ver el menu")
+    || normalizado.includes("menu completo")
+    || normalizado.includes("catalogo completo");
 }
 
 function redactarRespuestaVenta(mensaje: MensajeEntrante, contexto: ContextoNegocio) {
@@ -135,6 +186,10 @@ function redactarRespuestaConsulta(mensaje: MensajeEntrante, contexto: ContextoN
     return "Sí, hacemos delivery a varias comunas de Santiago. ¿A qué dirección necesitas el pedido?";
   }
 
+  if (esConsultaRetiroLocal(mensaje.texto)) {
+    return "Sí, puedes retirar en local. Si quieres, te ayudo a elegir productos y dejamos el pedido armado para retiro.";
+  }
+
     return "Hola, soy el asistente de Poke & Roll. Te puedo ayudar con menú, promociones, horarios, delivery y medios de pago. ¿Qué necesitas?";
 }
 
@@ -158,6 +213,16 @@ export function redactarRespuestaBase(mensaje: MensajeEntrante, contexto?: Conte
     };
   }
   if (c.intencion === "venta") {
+    if (mencionaAlergia(mensaje.texto)) {
+      return {
+        ...c,
+        requiereHumano: true,
+        respuesta:
+          "Tenemos opciones que pueden adaptarse, pero como mencionas alergia prefiero que el equipo confirme la preparación segura antes de cerrar el pedido. ¿Qué producto te interesa y qué ingrediente debemos evitar?",
+        decisionSeguridad: "escalar_a_humano"
+      };
+    }
+
     if (esSolicitudQuitarProducto(mensaje.texto)) {
       return {
         ...c,
@@ -197,10 +262,12 @@ Reglas:
 - Puedes mencionar precios, promociones, horarios y costos de despacho SOLO si aparecen TEXTUALMENTE en el contexto de catalogo entregado
 - NUNCA inventes tiempos de espera, tiempos de despacho, precios, descuentos ni stock. Si el dato no esta en el contexto, di que no tienes ese dato y ofrece derivar al equipo
 - Si preguntan por tiempo de espera o tiempo de despacho y no esta en el contexto, responde: "Para darte un tiempo preciso, te recomiendo contactar directamente con el equipo" y pon requiereHumano: true
+- Si preguntan si pueden retirar en local, responde que si pueden retirar en local y no escales a humano
 - No digas que puedes enviar catalogo visual salvo que el contexto indique explicitamente que hay un catalogo visual prioritario disponible
 - Si no hay catalogo visual disponible, no expliques que falta el catalogo; responde con alternativas del catalogo de productos
 - Si el cliente quiere sacar, quitar, retirar u omitir un ingrediente o producto del armado, no escales a humano y no cobres adicional. Indica que se puede hacer sin costo y que debe quedar detallado como observacion de la orden
 - Si el cliente pide "sin palta" u otro ingrediente sin mencionar alergia grave, tratalo como modificacion normal sin costo. Si declara alergia, pide confirmacion y deja observacion clara para cocina
+- Si el cliente declara alergia o intolerancia, requiereHumano debe ser true y decisionSeguridad "escalar_a_humano"
 - Para venta, recomienda 1 a 3 opciones concretas del catalogo y haz una pregunta de cierre
 - Para reclamos, pide nombre y numero de pedido`;
 
@@ -263,6 +330,10 @@ function sanitizarTono(respuesta: string, hayCatalogoVisual: boolean) {
     limpia = limpia
       .replace(/\bte puedo enviar nuestro cat[aá]logo\b/gi, "adjunto nuestro catálogo")
       .replace(/\bte puedo enviar el cat[aá]logo\b/gi, "adjunto el catálogo")
+      .replace(/con gusto adjunto nuestro cat[aá]logo visual[^.]*\.\s*/gi, "")
+      .replace(/tenemos un cat[aá]logo visual disponible[^.]*\.\s*/gi, "")
+      .replace(/te lo enviar[eé][^.]*\.\s*/gi, "")
+      .replace(/lo enviar[eé][^.]*\.\s*/gi, "")
       .replace(/¿quieres que te env[ií]e el cat[aá]logo[^?]*\?/gi, "¿Quieres que te ayude a elegir una opción?")
       .replace(/¿te lo env[ií]o\?/gi, "¿Quieres que te ayude a elegir una opción?");
   }
@@ -271,6 +342,29 @@ function sanitizarTono(respuesta: string, hayCatalogoVisual: boolean) {
 }
 
 function aplicarReglasNegocioLocales(decision: DecisionAgente, mensaje: MensajeEntrante): DecisionAgente {
+  if (esConsultaRetiroLocal(mensaje.texto)) {
+    return {
+      ...decision,
+      agente: "Atencion al Cliente",
+      intencion: "consulta",
+      requiereHumano: false,
+      respuesta: "Sí, puedes retirar en local. Si quieres, te ayudo a elegir productos y dejamos el pedido armado para retiro.",
+      decisionSeguridad: "aprobado"
+    };
+  }
+
+  if (mencionaAlergia(mensaje.texto)) {
+    return {
+      ...decision,
+      agente: "Ventas",
+      intencion: "venta",
+      requiereHumano: true,
+      respuesta:
+        "Tenemos opciones que pueden adaptarse, pero como mencionas alergia prefiero que el equipo confirme la preparación segura antes de cerrar el pedido. ¿Qué producto te interesa y qué ingrediente debemos evitar?",
+      decisionSeguridad: "escalar_a_humano"
+    };
+  }
+
   if (!esSolicitudQuitarProducto(mensaje.texto)) return decision;
 
   const respuestaNormalizada = normalizar(decision.respuesta);
@@ -297,8 +391,9 @@ export async function generarRespuesta(mensaje: MensajeEntrante): Promise<Decisi
   ]);
   const respuestaFallback = redactarRespuestaBase(mensaje, contexto);
   const reglaCatalogoVisualActiva = configComercial?.reglas.some((r) => r.id === "catalogo-visual" && r.activa);
-  // Solo adjuntar catálogo si la pregunta es sobre comida/precios, NO sobre tiempos/horarios/despacho
-  const consultaCatalogo = /menu|menú|carta|promo|promocion|promoción|precio|cuánto vale|cuanto vale|cuánto cuesta|cuanto cuesta|que tienen|qué tienen|opciones|catalogo|catálogo|rolls|poke|sushi|combo|ingrediente/i.test(mensaje.texto);
+  // Adjuntar catalogo solo cuando el cliente pide carta/menu/precios/promos de forma explicita.
+  // Consultas de recomendacion ("recomiendame rolls en palta") deben responder con opciones concretas, sin PDF.
+  const consultaCatalogo = esSolicitudCatalogoVisual(mensaje.texto);
   const catalogoVisual = reglaCatalogoVisualActiva && consultaCatalogo
     ? configComercial?.imagenes.find((img) => img.prioridadEnvio) ?? null
     : null;
@@ -307,8 +402,21 @@ export async function generarRespuesta(mensaje: MensajeEntrante): Promise<Decisi
     if (!catalogoVisual || decision.requiereHumano) return decision;
     const esPdf = catalogoVisual.url.includes("/api/catalogo/pdf") || catalogoVisual.nombre.toLowerCase().endsWith(".pdf");
     const intro = esPdf
-      ? "Adjunto el catálogo completo en PDF como primera opción."
-      : "Tengo un catálogo visual disponible; lo usaré como primera opción.";
+      ? "Te adjunto el catálogo completo en PDF."
+      : "Te adjunto el catálogo visual.";
+    if (esSolicitudCatalogoCompleto(mensaje.texto)) {
+      return {
+        ...decision,
+        respuesta: sanitizarTono(`${intro} ¿Quieres que te ayude a elegir rolls, pokes o promociones?`, true),
+        catalogoVisual: {
+          nombre: catalogoVisual.nombre,
+          url: catalogoVisual.url,
+          tipo: catalogoVisual.tipo,
+          prioridadEnvio: catalogoVisual.prioridadEnvio
+        }
+      };
+    }
+
     const respuesta = decision.respuesta.toLowerCase().includes("catalogo visual")
       ? decision.respuesta
       : `${intro} ${decision.respuesta}`;

@@ -357,3 +357,49 @@ Validacion:
 
 - `npm run lint`: OK con 8 warnings preexistentes en componentes no relacionados.
 - `npm run build`: OK.
+
+## 15. Catalogo visual solo en solicitudes explicitas
+
+Fecha: 2026-06-02
+
+Cambios realizados:
+
+- Se separo la deteccion de solicitud de catalogo visual de la deteccion general de venta.
+- El agente ya no adjunta PDF/imagen cuando el cliente pide una recomendacion especifica, por ejemplo `recomiendame rolls en palta`.
+- El catalogo visual/PDF se adjunta solo cuando el cliente pide explicitamente menu, carta, catalogo, promociones, precios o vista general de opciones.
+- Se cambio el texto interno `como primera opcion` por una frase mas natural para cliente: `Te adjunto el catalogo completo en PDF`.
+- Se limpio texto duplicado como `te lo enviare enseguida` cuando el catalogo ya fue adjuntado.
+
+Validacion:
+
+- Caso `recomiendame rolls en palta`: `catalogoVisual=null`, respuesta con opciones concretas.
+- Caso `mandame el catalogo completo`: adjunta `menú2026.pdf`.
+
+## 16. Bateria interna de pruebas del agente
+
+Fecha: 2026-06-02
+
+Casos probados:
+
+- Recomendaciones: rolls en palta, spicy, vegetariano, sushi para 10 personas.
+- Productos especificos: Poke de Salmon, Hand Roll Ebi, aperitivos, sushi sin arroz, Sushi Burger Salmon, Sake Roll.
+- Promociones: promociones vigentes, 30 piezas mixtas, combos para 4 personas.
+- Operacion: horario, delivery, retiro en local, medios de pago.
+- Seguridad: alergia a palta, quitar ingrediente, reclamo por atraso, cancelacion.
+- Productos no disponibles: ramen.
+
+Ajustes realizados:
+
+- `recomiendame rolls en palta` ya no adjunta PDF y responde con opciones concretas.
+- `cuanto cuesta el sake roll` ya no adjunta PDF y entrega variantes con precios.
+- `que tienen con spicy` ya no adjunta PDF y recomienda Ebi Spicy.
+- `tienen sushi sin arroz` ya no se interpreta como quitar ingrediente.
+- `puedo retirar en local` ya no se interpreta como quitar producto y no escala a humano.
+- Consultas con alergia ahora escalan a humano por seguridad alimentaria.
+- Solicitudes de catalogo completo tienen respuesta controlada: adjunta PDF y pregunta si desea ayuda para elegir.
+
+Validacion:
+
+- `npm run lint`: OK con 8 warnings preexistentes.
+- `npm run build`: OK.
+- Pruebas por `POST /api/agente/procesar-mensaje`: OK en casos corregidos.
