@@ -3,8 +3,13 @@ import { SessionProvider } from "next-auth/react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Goup Soluciones",
-  description: "La plataforma de IA para tu negocio.",
+  title: "Sushi Poke & Roll",
+  description: "Agente omnicanal para Sushi Poke & Roll.",
+  icons: {
+    icon: "/images/Poke_n_Roll.png",
+    shortcut: "/images/Poke_n_Roll.png",
+    apple: "/images/Poke_n_Roll.png"
+  }
 };
 
 export default function RootLayout({
