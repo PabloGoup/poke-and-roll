@@ -1,3 +1,5 @@
+"use client";
+
 import { LandingHero } from "./_components/landing-hero";
 import { LandingFeatures } from "./_components/landing-features";
 import { GoupFooter } from "./_components/goup-footer";
