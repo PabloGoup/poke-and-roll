@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Goup Soluciones",
+  title: "Goup Soluciones — Agentes IA para negocios",
   description:
-    "La plataforma de IA para tu negocio. Automatiza WhatsApp, Instagram y Facebook.",
+    "SaaS omnicanal para automatizar atención, ventas y control operativo con agentes de IA.",
 };
 
 export default function GoupLayout({ children }: { children: React.ReactNode }) {
