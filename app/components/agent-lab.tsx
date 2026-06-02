@@ -1,18 +1,20 @@
 import { FormEvent } from "react";
 import Image from "next/image";
-import { AlertTriangle, Bot, CheckCircle2, FileText, ImagePlus, Lightbulb, Send } from "lucide-react";
-import { Canal, DecisionResponse } from "@/app/types";
+import { AlertTriangle, Bot, CheckCircle2, FileText, ImagePlus, Lightbulb, Send, Trash2 } from "lucide-react";
+import { Canal, DecisionResponse, MensajeLaboratorio } from "@/app/types";
 
 type Props = {
   canal: Canal;
   cliente: string;
   texto: string;
   decision: DecisionResponse | null;
+  historial: MensajeLaboratorio[];
   loading: boolean;
   onCanalChange: (canal: Canal) => void;
   onClienteChange: (value: string) => void;
   onTextoChange: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onClearHistorial: () => void;
   onConfigCatalogo?: () => void;
 };
 
@@ -34,13 +36,17 @@ export function AgentLab({
   cliente,
   texto,
   decision,
+  historial,
   loading,
   onCanalChange,
   onClienteChange,
   onTextoChange,
   onSubmit,
+  onClearHistorial,
   onConfigCatalogo
 }: Props) {
+  const ultimaDecision = [...historial].reverse().find((item) => item.rol === "agente" && item.decision)?.decision ?? decision?.decision;
+
   return (
     <section className="two-column" id="laboratorio">
       <div className="panel">
@@ -125,7 +131,7 @@ export function AgentLab({
 
           <button className="primary-button" disabled={loading} type="submit" style={{ width: "100%", justifyContent: "center", height: 40 }}>
             <Send size={15} />
-            {loading ? "Procesando…" : "Probar agente →"}
+            {loading ? "Procesando…" : historial.length > 0 ? "Enviar mensaje →" : "Probar agente →"}
           </button>
         </form>
       </div>
@@ -135,63 +141,75 @@ export function AgentLab({
         <div className="panel-title">
           <div>
             <span>Resultado</span>
-            <h2>Decisión del agente</h2>
+            <h2>Conversación simulada</h2>
           </div>
-          {decision?.decision?.requiereHumano ? (
+          {ultimaDecision?.requiereHumano ? (
             <AlertTriangle size={22} style={{ color: "var(--amber)" }} />
           ) : (
             <CheckCircle2 size={22} style={{ color: "var(--green)" }} />
           )}
         </div>
 
-        {decision?.decision ? (
-          <div className="decision-card">
-            <div className="decision-tags">
-              <span style={{ background: "var(--surface-3)", color: "var(--text-2)" }}>
-                🤖 {decision.decision.agente}
-              </span>
-              <span style={{ background: "var(--blue-soft)", color: "var(--blue)" }}>
-                {decision.decision.intencion}
-              </span>
-              <span style={{
-                background: decision.decision.requiereHumano ? "var(--amber-soft)" : "var(--green-soft)",
-                color: decision.decision.requiereHumano ? "var(--amber)" : "var(--green)"
-              }}>
-                {decision.decision.requiereHumano ? "⚠ Requiere humano" : "✓ Respondido por IA"}
-              </span>
+        {historial.length > 0 ? (
+          <div className="agent-thread-card">
+            <div className="agent-thread">
+              {historial.map((mensaje) => (
+                <article className={`agent-thread-message ${mensaje.rol}`} key={mensaje.id}>
+                  <div className="agent-thread-bubble">
+                    <span>{mensaje.rol === "cliente" ? mensaje.cliente : "Agente"}</span>
+                    <p>{mensaje.texto}</p>
+                  </div>
+
+                  {mensaje.decision?.catalogoVisual && (
+                    <div className="agent-visual-preview">
+                      {esPdf(mensaje.decision.catalogoVisual.url, mensaje.decision.catalogoVisual.nombre) ? (
+                        <a className="agent-file-preview" href={mensaje.decision.catalogoVisual.url} rel="noreferrer" target="_blank">
+                          <FileText size={34} />
+                          <span>Abrir catálogo completo en PDF</span>
+                        </a>
+                      ) : (
+                        <Image
+                          alt={mensaje.decision.catalogoVisual.nombre}
+                          height={220}
+                          src={mensaje.decision.catalogoVisual.url}
+                          unoptimized
+                          width={360}
+                        />
+                      )}
+                      <div>
+                        <strong>{mensaje.decision.catalogoVisual.nombre}</strong>
+                        <span>{mensaje.decision.catalogoVisual.tipo.replace("_", " ")}</span>
+                      </div>
+                    </div>
+                  )}
+                </article>
+              ))}
+
+              {loading && (
+                <article className="agent-thread-message agente">
+                  <div className="agent-thread-bubble typing">
+                    <span>Agente</span>
+                    <p>Procesando respuesta...</p>
+                  </div>
+                </article>
+              )}
             </div>
 
-            <div style={{ padding: "14px 16px", background: "#d9fdd3", borderRadius: "0 8px 8px 8px", position: "relative", fontSize: 14, lineHeight: 1.6, color: "var(--text)" }}>
-              <div style={{ position: "absolute", top: 0, left: -8, width: 0, height: 0, borderStyle: "solid", borderWidth: "0 8px 8px 0", borderColor: "transparent #d9fdd3 transparent transparent" }} />
-              {decision.decision.respuesta}
-            </div>
-
-            {decision.decision.catalogoVisual && (
-              <div className="agent-visual-preview">
-                {esPdf(decision.decision.catalogoVisual.url, decision.decision.catalogoVisual.nombre) ? (
-                  <a className="agent-file-preview" href={decision.decision.catalogoVisual.url} rel="noreferrer" target="_blank">
-                    <FileText size={34} />
-                    <span>Abrir catálogo completo en PDF</span>
-                  </a>
-                ) : (
-                  <Image
-                    alt={decision.decision.catalogoVisual.nombre}
-                    height={220}
-                    src={decision.decision.catalogoVisual.url}
-                    unoptimized
-                    width={360}
-                  />
-                )}
-                <div>
-                  <strong>{decision.decision.catalogoVisual.nombre}</strong>
-                  <span>{decision.decision.catalogoVisual.tipo.replace("_", " ")}</span>
-                </div>
+            {ultimaDecision && (
+              <div className="agent-decision-strip">
+                <span>🤖 {ultimaDecision.agente}</span>
+                <span>{ultimaDecision.intencion}</span>
+                <span className={ultimaDecision.requiereHumano ? "warn" : "ok"}>
+                  {ultimaDecision.requiereHumano ? "Requiere humano" : "Respondido por IA"}
+                </span>
+                <span>Seguridad: {ultimaDecision.decisionSeguridad}</span>
               </div>
             )}
 
-            <div style={{ fontSize: 11, color: "var(--muted)", padding: "8px 12px", background: "var(--surface-2)", borderRadius: 6, border: "1px solid var(--line)" }}>
-              🛡 Seguridad: {decision.decision.decisionSeguridad}
-            </div>
+            <button className="ghost-button" onClick={onClearHistorial} type="button">
+              <Trash2 size={14} />
+              Limpiar conversación
+            </button>
           </div>
         ) : (
           <div className="empty-state" style={{ flexDirection: "column", gap: 8, minHeight: 200 }}>

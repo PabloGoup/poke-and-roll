@@ -19,7 +19,7 @@ import { ChannelInbox } from "@/app/components/channel-inbox";
 import { CommercialConfig } from "@/app/components/commercial-config";
 import { IntegrationStatus } from "@/app/components/integration-status";
 import { SecurityPanel } from "@/app/components/security-panel";
-import { Canal, DecisionResponse, HealthResponse, MetricasResponse, Vista } from "@/app/types";
+import { Canal, DecisionResponse, HealthResponse, MensajeLaboratorio, MetricasResponse, Vista } from "@/app/types";
 
 export default function DashboardClient() {
   const [vista, setVista] = useState<Vista>("dashboard");
@@ -30,6 +30,7 @@ export default function DashboardClient() {
   const [cliente, setCliente] = useState("Valentina M.");
   const [texto, setTexto] = useState("Hola! tienen opciones sin palta? soy alérgica");
   const [decision, setDecision] = useState<DecisionResponse | null>(null);
+  const [historialLab, setHistorialLab] = useState<MensajeLaboratorio[]>([]);
   const [testingAgent, setTestingAgent] = useState(false);
   const [alertResult, setAlertResult] = useState<string | null>(null);
 
@@ -63,15 +64,49 @@ export default function DashboardClient() {
 
   async function probarAgente(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const textoLimpio = texto.trim();
+    if (!textoLimpio) return;
+
+    const mensajeCliente: MensajeLaboratorio = {
+      id: crypto.randomUUID(),
+      rol: "cliente",
+      texto: textoLimpio,
+      canal,
+      cliente,
+      creadoEn: new Date().toISOString()
+    };
+    const historialPrevio = historialLab.slice(-10);
+
     setTestingAgent(true);
     setDecision(null);
+    setHistorialLab((prev) => [...prev, mensajeCliente]);
+    setTexto("");
+
     try {
       const res = await fetch("/api/agente/procesar-mensaje", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ canal, cliente, texto })
+        body: JSON.stringify({
+          canal,
+          cliente,
+          texto: textoLimpio,
+          historial: historialPrevio.map((m) => ({ rol: m.rol, texto: m.texto }))
+        })
       });
-      setDecision(await res.json());
+      const data: DecisionResponse = await res.json();
+      setDecision(data);
+      if (data.decision) {
+        const mensajeAgente: MensajeLaboratorio = {
+          id: crypto.randomUUID(),
+          rol: "agente",
+          texto: data.decision.respuesta,
+          canal,
+          cliente,
+          creadoEn: new Date().toISOString(),
+          decision: data.decision
+        };
+        setHistorialLab((prev) => [...prev, mensajeAgente]);
+      }
     } finally {
       setTestingAgent(false);
     }
@@ -148,12 +183,17 @@ export default function DashboardClient() {
             canal={canal}
             cliente={cliente}
             decision={decision}
+            historial={historialLab}
             loading={testingAgent}
             onCanalChange={setCanal}
             onClienteChange={setCliente}
             onConfigCatalogo={() => setVista("configuracion")}
             onSubmit={probarAgente}
             onTextoChange={setTexto}
+            onClearHistorial={() => {
+              setHistorialLab([]);
+              setDecision(null);
+            }}
             texto={texto}
           />
         </div>

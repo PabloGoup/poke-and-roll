@@ -269,6 +269,7 @@ Cambios realizados:
 Validacion:
 
 - `npm run lint`: OK con 8 warnings preexistentes en componentes no relacionados.
+- `npm run build`: OK con los mismos warnings preexistentes.
 - `npm run build`: OK.
 
 Pendiente:
@@ -403,3 +404,25 @@ Validacion:
 - `npm run lint`: OK con 8 warnings preexistentes.
 - `npm run build`: OK.
 - Pruebas por `POST /api/agente/procesar-mensaje`: OK en casos corregidos.
+
+## 17. Laboratorio con conversacion simulada
+
+Fecha: 2026-06-02
+
+Problema detectado:
+
+- El laboratorio del agente simulaba solo un mensaje aislado.
+- Al enviar una prueba, el texto se limpiaba y la respuesta anterior quedaba reemplazada, por lo que no era posible probar una conversacion fluida.
+
+Cambios realizados:
+
+- Se agrego `MensajeLaboratorio` en `app/types.ts` para representar mensajes de cliente y agente dentro del laboratorio.
+- `app/dashboard-client.tsx` ahora mantiene `historialLab` con los mensajes enviados y respuestas generadas.
+- El formulario limpia el textarea despues de enviar, pero conserva el mensaje en el hilo visible.
+- `app/components/agent-lab.tsx` muestra una conversacion simulada tipo chat, con mensajes de cliente, respuestas del agente, adjuntos visuales y estado de seguridad de la ultima decision.
+- Se agrego un boton para limpiar la conversacion simulada sin afectar configuracion ni catalogo.
+- `lib/agente.ts` acepta `historial` opcional y lo incorpora al prompt para que la siguiente respuesta tenga contexto reciente.
+
+Validacion:
+
+- `npm run lint`: OK con 8 warnings preexistentes en componentes no relacionados.

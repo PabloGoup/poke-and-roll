@@ -28,6 +28,16 @@ export type DecisionResponse = {
   error?: string;
 };
 
+export type MensajeLaboratorio = {
+  id: string;
+  rol: "cliente" | "agente";
+  texto: string;
+  canal: Canal;
+  cliente: string;
+  creadoEn: string;
+  decision?: DecisionResponse["decision"];
+};
+
 export type IntegracionEstado = {
   nombre: string;
   activo: boolean;
