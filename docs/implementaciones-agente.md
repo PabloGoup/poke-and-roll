@@ -341,3 +341,19 @@ Validacion:
 - `npm run build`: OK.
 - `GET /`: OK, devuelve HTML 200 con el nuevo bloque de stack tecnologico.
 - Revision visual en Safari: OK, el sistema orbital queda debajo de las metricas, sin borde, sin titulo visible y sin aspecto de tarjeta.
+
+## 14. Catalogo fallback real desde piezas visuales
+
+Fecha: 2026-06-02
+
+Cambios realizados:
+
+- Se reemplazo el catalogo fallback generico de `lib/catalogo.ts` por productos reales del catalogo visual.
+- Se agregaron categorias: sushi premium, rolls tradicionales, futomaki, california, avocado, rolls calientes, aperitivos, hand roll, sushi sin arroz, sushiburger, poke bowl y extras.
+- Se agregaron promociones reales: combos premium, promociones rolls 1, promociones rolls 2 y promociones de pokes.
+- Cuando el cliente pide menu, carta, catalogo, precios o productos, el fallback devuelve el catalogo completo disponible en vez de limitarse a 8 resultados relevantes.
+
+Validacion:
+
+- `npm run lint`: OK con 8 warnings preexistentes en componentes no relacionados.
+- `npm run build`: OK.

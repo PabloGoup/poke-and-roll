@@ -85,61 +85,455 @@ export type ContextoNegocio = {
 
 const productosFallback: ProductoCatalogo[] = [
   {
-    nombre: "Combo Pareja",
-    categoria: "combos",
-    descripcion: "8 rolls variados + 2 bebidas.",
-    precio: 16900
+    nombre: "Acevichado Roll",
+    categoria: "sushi premium",
+    descripcion: "Palta, queso crema, ciboulette, cubierto con salsa acevichada del dia.",
+    precio: 5990
   },
   {
-    nombre: "Combo Mix",
-    categoria: "combos",
-    descripcion: "8 rolls + 4 tempuras, ideal para 2 personas.",
-    precio: 18900
+    nombre: "Beef Roll",
+    categoria: "sushi premium",
+    descripcion: "Queso crema, cebollin, carne, cubierto con salsa teriyaki.",
+    precio: 5990
   },
   {
-    nombre: "Combo Familiar",
-    categoria: "combos",
-    descripcion: "16 rolls variados + 8 tempuras + 4 gyosas, recomendado para 4 personas.",
-    precio: 34900
+    nombre: "Sushi a la Huancaina",
+    categoria: "sushi premium",
+    descripcion: "Pollo tempurizado, queso crema, banado con salsa a la huancaina.",
+    precio: 5990
   },
   {
-    nombre: "Salmon Clasico",
-    categoria: "rolls",
-    descripcion: "Roll de salmon, queso crema y pepino, sin palta.",
-    precio: 8900
+    nombre: "Ebi Spicy",
+    categoria: "sushi premium",
+    descripcion: "Camaron, queso crema, cebollin, apanado en panko, aderezado con salsa spicy.",
+    precio: 5900
   },
   {
-    nombre: "Spicy Salmon",
-    categoria: "rolls",
-    descripcion: "Roll de salmon spicy sin palta.",
-    precio: 9200
+    nombre: "Cangrejo Dinamita Roll",
+    categoria: "sushi premium",
+    descripcion: "Mezcla de cangrejo con salsa dinamita, queso crema, cebollin, envuelto en palta.",
+    precio: 6490
   },
   {
-    nombre: "Gyosas",
-    categoria: "extras",
-    descripcion: "Porcion para agregar al pedido.",
+    nombre: "Tori Fuji Roll",
+    categoria: "sushi premium",
+    descripcion: "Pollo apanado, queso crema, pepino, envuelto en sesamo, con salsa fuji sopleteada.",
+    precio: 6490
+  },
+  {
+    nombre: "Sake Ceviche Roll",
+    categoria: "sushi premium",
+    descripcion: "Salmon y palta, cubierto con ceviche mixto del dia.",
+    precio: 6990
+  },
+  {
+    nombre: "Ebi Roll",
+    categoria: "futomaki envuelto en nori",
+    descripcion: "Camaron, queso crema, cebollin.",
+    precio: 4000
+  },
+  {
+    nombre: "Tori Roll",
+    categoria: "futomaki envuelto en nori",
+    descripcion: "Pollo, queso crema, cebollin.",
+    precio: 4000
+  },
+  {
+    nombre: "Sake Roll",
+    categoria: "futomaki envuelto en nori",
+    descripcion: "Salmon, palta, queso crema.",
+    precio: 4000
+  },
+  {
+    nombre: "Pepino Roll",
+    categoria: "futomaki envuelto en nori",
+    descripcion: "Pepino, queso crema, palta.",
+    precio: 3800
+  },
+  {
+    nombre: "Maki Roll",
+    categoria: "futomaki envuelto en nori",
+    descripcion: "Kanikama, queso crema, ciboulette.",
+    precio: 3800
+  },
+  {
+    nombre: "Palmito Roll",
+    categoria: "futomaki envuelto en nori",
+    descripcion: "Palmito, palta.",
+    precio: 3800
+  },
+  {
+    nombre: "Ebi Roll",
+    categoria: "california envuelto en sesamo o ciboulette",
+    descripcion: "Camaron, queso crema, cebollin.",
+    precio: 4200
+  },
+  {
+    nombre: "Tori Tempura Roll",
+    categoria: "california envuelto en sesamo o ciboulette",
+    descripcion: "Pollo tempurizado, queso crema, cebollin.",
+    precio: 4200
+  },
+  {
+    nombre: "Sake Roll",
+    categoria: "california envuelto en sesamo o ciboulette",
+    descripcion: "Salmon, palta, queso crema.",
+    precio: 4200
+  },
+  {
+    nombre: "Pepino Roll",
+    categoria: "california envuelto en sesamo o ciboulette",
+    descripcion: "Pepino, queso crema, palta.",
+    precio: 4000
+  },
+  {
+    nombre: "Maki Roll",
+    categoria: "california envuelto en sesamo o ciboulette",
+    descripcion: "Kanikama, queso crema, ciboulette.",
+    precio: 4000
+  },
+  {
+    nombre: "Teriyaki Roll",
+    categoria: "california envuelto en sesamo o ciboulette",
+    descripcion: "Pollo teriyaki, palta, cebollin.",
     precio: 4500
   },
   {
-    nombre: "Bebida lata",
-    categoria: "bebidas",
-    descripcion: "Bebida individual.",
-    precio: 1800
+    nombre: "Ebi Tempura Roll",
+    categoria: "avocado envuelto en palta o queso",
+    descripcion: "Camaron apanado, queso crema, cebollin.",
+    precio: 4500
+  },
+  {
+    nombre: "Tori Tempura Roll",
+    categoria: "avocado envuelto en palta o queso",
+    descripcion: "Pollo tempurizado, queso crema, cebollin.",
+    precio: 4500
+  },
+  {
+    nombre: "Sake Roll",
+    categoria: "avocado envuelto en palta o queso",
+    descripcion: "Salmon, palta, queso crema.",
+    precio: 5000
+  },
+  {
+    nombre: "Palmito Roll",
+    categoria: "avocado envuelto en palta o queso",
+    descripcion: "Palmito, queso crema, palta.",
+    precio: 4200
+  },
+  {
+    nombre: "Maki Roll",
+    categoria: "avocado envuelto en palta o queso",
+    descripcion: "Kanikama, queso crema, ciboulette.",
+    precio: 4200
+  },
+  {
+    nombre: "Teriyaki Roll",
+    categoria: "avocado envuelto en palta o queso",
+    descripcion: "Pollo teriyaki, palta, cebollin.",
+    precio: 5000
+  },
+  {
+    nombre: "Ebi Roll",
+    categoria: "rolls calientes",
+    descripcion: "Camaron, queso crema, cebollin.",
+    precio: 5000
+  },
+  {
+    nombre: "Tori Roll",
+    categoria: "rolls calientes",
+    descripcion: "Pollo, queso crema, cebollin.",
+    precio: 5000
+  },
+  {
+    nombre: "Sake Roll",
+    categoria: "rolls calientes",
+    descripcion: "Salmon, palta, queso crema.",
+    precio: 5500
+  },
+  {
+    nombre: "Veggie Roll",
+    categoria: "rolls calientes",
+    descripcion: "Champinon, queso crema, pimenton.",
+    precio: 4500
+  },
+  {
+    nombre: "Maki Roll",
+    categoria: "rolls calientes",
+    descripcion: "Kanikama, queso crema, ciboulette.",
+    precio: 4500
+  },
+  {
+    nombre: "Teriyaki Roll",
+    categoria: "rolls calientes",
+    descripcion: "Pollo teriyaki, queso crema, cebollin.",
+    precio: 5500
+  },
+  {
+    nombre: "Sashimi",
+    categoria: "aperitivos",
+    descripcion: "5 cortes de salmon o pescado blanco.",
+    precio: 5500
+  },
+  {
+    nombre: "Nigiris",
+    categoria: "aperitivos",
+    descripcion: "1 unidad de arroz cubierta con salmon, camaron o pescado blanco.",
+    precio: 1000
+  },
+  {
+    nombre: "Gyosas",
+    categoria: "aperitivos",
+    descripcion: "5 empanadas japonesas que pueden ser de pollo, camaron, cerdo o vegetariana.",
+    precio: 3990
+  },
+  {
+    nombre: "Sake Furay",
+    categoria: "aperitivos",
+    descripcion: "5 unidades de cortes de salmon apanado.",
+    precio: 5000
+  },
+  {
+    nombre: "Tori Furay",
+    categoria: "aperitivos",
+    descripcion: "5 unidades de cortes de filete pollo apanado.",
+    precio: 4500
+  },
+  {
+    nombre: "Ebi Furay",
+    categoria: "aperitivos",
+    descripcion: "5 unidades de camaron apanado.",
+    precio: 4500
+  },
+  {
+    nombre: "Hand Roll Ebi",
+    categoria: "hand roll",
+    descripcion: "Camaron, queso crema, cebollin.",
+    precio: 3500
+  },
+  {
+    nombre: "Hand Roll Tori",
+    categoria: "hand roll",
+    descripcion: "Pollo, queso crema, cebollin.",
+    precio: 3000
+  },
+  {
+    nombre: "Hand Roll Sake",
+    categoria: "hand roll",
+    descripcion: "Salmon, queso crema, cebollin.",
+    precio: 3500
+  },
+  {
+    nombre: "Hand Roll Vegetariano",
+    categoria: "hand roll",
+    descripcion: "Champinon, queso crema, cebollin.",
+    precio: 3000
+  },
+  {
+    nombre: "Hand Roll Maki",
+    categoria: "hand roll",
+    descripcion: "Kanikama, queso crema, cebollin.",
+    precio: 3000
+  },
+  {
+    nombre: "Sushi sin arroz Vegetariano",
+    categoria: "sushi sin arroz",
+    descripcion: "Pepino, champinon, palta, queso crema, palmito, cebollin.",
+    precio: 5500
+  },
+  {
+    nombre: "Sushi sin arroz Ebi Sake",
+    categoria: "sushi sin arroz",
+    descripcion: "Camaron, salmon, queso crema, palta, cebollin.",
+    precio: 6000
+  },
+  {
+    nombre: "Sushi sin arroz Ebi Tori",
+    categoria: "sushi sin arroz",
+    descripcion: "Camaron, pollo, queso crema, palta, cebollin.",
+    precio: 6000
+  },
+  {
+    nombre: "Sushi Burger Pollo",
+    categoria: "sushiburger",
+    descripcion: "Relleno de pollo apanado, palta, queso crema y cebollin.",
+    precio: 6490
+  },
+  {
+    nombre: "Sushi Burger Camaron",
+    categoria: "sushiburger",
+    descripcion: "Relleno de camaron apanado, palta, queso crema y cebollin.",
+    precio: 6990
+  },
+  {
+    nombre: "Sushi Burger Salmon",
+    categoria: "sushiburger",
+    descripcion: "Relleno de salmon, palta, queso crema y cebollin.",
+    precio: 7490
+  },
+  {
+    nombre: "Poke de Pollo",
+    categoria: "poke bowl",
+    descripcion: "Arroz shari o nodle, queso crema, pollo, palta, pepino, cebollin y sesamo + salsa.",
+    precio: 6490
+  },
+  {
+    nombre: "Poke de Pollo Apanado",
+    categoria: "poke bowl",
+    descripcion: "Arroz shari o nodle, queso crema, pollo apanado, palta, zanahoria y sesamo + salsa.",
+    precio: 6990
+  },
+  {
+    nombre: "Poke de Camaron",
+    categoria: "poke bowl",
+    descripcion: "Arroz shari o nodle, queso crema, camaron apanado, palta, pepino y sesamo + salsa.",
+    precio: 6990
+  },
+  {
+    nombre: "Poke de Salmon",
+    categoria: "poke bowl",
+    descripcion: "Arroz shari o nodle, queso crema, salmon, palta, pepino y sesamo + salsa.",
+    precio: 6990
+  },
+  {
+    nombre: "Poke de Veggie",
+    categoria: "poke bowl",
+    descripcion: "Arroz shari o nodle, palta, pepino, zanahoria, champinon y sesamo + salsa.",
+    precio: 5990
+  },
+  {
+    nombre: "Poke Cangrejo Teriyaki",
+    categoria: "poke bowl",
+    descripcion: "Arroz shari o nodle, cangrejo teriyaki, queso crema, palta y cebollin + salsa.",
+    precio: 6490
+  },
+  {
+    nombre: "Poke Camaron Apanado",
+    categoria: "poke bowl",
+    descripcion: "Arroz shari o nodle, pollo apanado, queso crema, palta y cebollin + salsa.",
+    precio: 6990
+  },
+  {
+    nombre: "Salsa adicional",
+    categoria: "extras",
+    descripcion: "Salsas disponibles: acevichada, teriyaki, mayo spicy, soya, ponzu, thai, huancaina, fuji, guasacaca, dinamita cangrejo, aceite de sesamo, mayonesa, limon o sriracha.",
+    precio: 500
+  },
+  {
+    nombre: "Vegetal adicional",
+    categoria: "extras",
+    precio: 1000
+  },
+  {
+    nombre: "Proteina adicional",
+    categoria: "extras",
+    precio: 1500
   }
 ];
 
 const promocionesFallback: PromocionCatalogo[] = [
   {
-    nombre: "Promo para 2",
-    descripcion: "Combo Pareja con rolls variados y 2 bebidas.",
-    precio: 16900,
+    nombre: "30 piezas premium",
+    descripcion: "1 Acevichado Roll, 1 Sushi a la Huancaina y 1 Tori Fuji Roll.",
+    precio: 14990,
     condiciones: "Sujeto a disponibilidad del dia."
   },
   {
-    nombre: "Promo familiar",
-    descripcion: "Combo Familiar recomendado para 4 personas.",
-    precio: 34900,
-    condiciones: "Consultar disponibilidad antes de confirmar."
+    nombre: "50 piezas premium",
+    descripcion: "2 Acevichado Roll, 1 Beef Roll, 1 Cangrejo Dinamita Roll y 1 Ceviche Roll.",
+    precio: 24990,
+    condiciones: "Sujeto a disponibilidad del dia."
+  },
+  {
+    nombre: "20 piezas mixtas",
+    descripcion: "10 pollo queso crema cebollin envuelto en panko y 10 camaron queso crema cebollin envuelto en sesamo.",
+    precio: 7990,
+    condiciones: "Promociones rolls 1."
+  },
+  {
+    nombre: "30 piezas fritas",
+    descripcion: "10 pollo queso crema cebollin, 10 camaron queso crema cebollin y 10 kanikama queso crema cebollin.",
+    precio: 10990,
+    condiciones: "Promociones rolls 1."
+  },
+  {
+    nombre: "30 piezas mixtas",
+    descripcion: "10 pollo palta cebollin envuelto en queso, 10 palmito queso crema ciboulette envuelto en palta y 10 kanikama queso crema cebollin envuelto en panko.",
+    precio: 12500,
+    condiciones: "Promociones rolls 1."
+  },
+  {
+    nombre: "40 piezas mixtas",
+    descripcion: "10 camaron queso cebollin envuelto en palta, 10 pollo queso cebollin fritos, 10 kanikama queso ciboulette fritos y 10 pepino queso palta envuelto en sesamo.",
+    precio: 13990,
+    condiciones: "Promociones rolls 1."
+  },
+  {
+    nombre: "40 piezas fritas",
+    descripcion: "Salmon queso palta envuelto en panko, pollo queso cebollin envuelto en panko, champinon queso cebollin envuelto en panko y camaron queso cebollin envuelto en panko.",
+    precio: 14500,
+    condiciones: "Promociones rolls 1."
+  },
+  {
+    nombre: "50 piezas opcion A",
+    descripcion: "10 kanikama queso ciboulette futomaki frito, 10 camaron queso cebollin fritos, 10 pollo queso cebollin fritos, 10 salmon queso cebollin envuelto en palta y 10 palmito queso palta envuelto en sesamo.",
+    precio: 15990,
+    condiciones: "Promociones rolls 1."
+  },
+  {
+    nombre: "50 piezas opcion B",
+    descripcion: "Pollo apanado envuelto en palta, camaron apanado envuelto en queso, salmon queso cebollin envuelto en panko, pollo queso cebollin envuelto en panko y kanikama queso cebollin envuelto en panko.",
+    precio: 17500,
+    condiciones: "Promociones rolls 1."
+  },
+  {
+    nombre: "70 piezas mixtas",
+    descripcion: "10 camaron queso cebollin fritos, 10 pollo queso cebollin fritos, 10 kanikama queso ciboulette fritos, 10 salmon queso cebollin envuelto en palta, 10 palmito queso palta envuelto en queso, 10 pepino queso palta envuelto en sesamo y 10 pollo queso cebollin futomaki fritos.",
+    precio: 21990,
+    condiciones: "Promociones rolls 1."
+  },
+  {
+    nombre: "80 piezas mixtas",
+    descripcion: "20 pollo apanado en panko, 20 camaron apanado en panko, 10 salmon queso cebollin envuelto en sesamo, 10 camaron queso palta envuelto en queso, 10 pollo queso cebollin envuelto en palta, 10 palmito queso palta envuelto en ciboulette y futomaki pollo queso.",
+    precio: 25000,
+    condiciones: "Promociones rolls 2."
+  },
+  {
+    nombre: "100 piezas mixtas",
+    descripcion: "20 pollo queso cebollin en panko, 10 camaron queso cebollin en panko, 10 kanikama queso ciboulette en panko, 10 salmon queso cebollin en panko, 10 champinon queso cebollin en panko, 10 pollo queso crema palta envuelto en nori, 10 camaron queso cebollin envuelto en palta, 10 pepino queso cebollin envuelto en sesamo y 10 palmito queso cebollin envuelto en queso.",
+    precio: 34990,
+    condiciones: "Promociones rolls 2."
+  },
+  {
+    nombre: "140 piezas mixtas",
+    descripcion: "20 pollo queso cebollin en panko, 20 camaron queso cebollin en panko, 20 kanikama queso ciboulette en panko, 10 salmon queso cebollin en panko, 10 champinon queso cebollin en panko, 10 acevichado roll, 10 pollo queso crema palta envuelto en nori, 10 camaron queso cebollin envuelto en palta, 10 pepino queso cebollin envuelto en sesamo, 10 salmon queso ciboulette envuelto en palta y 10 palmito queso cebollin envuelto en queso.",
+    precio: 44990,
+    condiciones: "Promociones rolls 2."
+  },
+  {
+    nombre: "200 piezas mixtas",
+    descripcion: "40 pollo queso cebollin en panko, 30 camaron queso cebollin en panko, 20 kanikama queso ciboulette en panko, 10 salmon queso cebollin en panko, 10 champinon queso cebollin en panko, 20 pollo queso crema palta envuelto en nori, 10 camaron queso cebollin envuelto en palta, 10 pepino queso cebollin envuelto en sesamo, 10 salmon queso ciboulette envuelto en palta, 10 palmito queso cebollin envuelto en queso, 10 acevichado, 10 sushi a la huancaina y 10 beef roll.",
+    precio: 64990,
+    condiciones: "Promociones rolls 2."
+  },
+  {
+    nombre: "Promo 2 pokes",
+    descripcion: "Elige 2 pokes a eleccion.",
+    precio: 12990,
+    condiciones: "Promocion de pokes."
+  },
+  {
+    nombre: "Promo 3 pokes",
+    descripcion: "Elige 3 pokes a eleccion.",
+    precio: 18990,
+    condiciones: "Promocion de pokes."
+  },
+  {
+    nombre: "Promo 5 pokes",
+    descripcion: "Elige 5 pokes a eleccion.",
+    precio: 29990,
+    condiciones: "Promocion de pokes."
   }
 ];
 
@@ -198,6 +592,15 @@ function scoreProducto(producto: ProductoCatalogo, consulta: string) {
 }
 
 function ordenarProductosRelevantes(productos: ProductoCatalogo[], consulta: string) {
+  const consultaNormalizada = normalizar(consulta);
+  const pideCatalogoCompleto = /\b(menu|carta|catalogo|precios|productos)\b/.test(consultaNormalizada)
+    || consultaNormalizada.includes("que tienen")
+    || consultaNormalizada.includes("que venden");
+
+  if (pideCatalogoCompleto) {
+    return [...productos].sort((a, b) => a.categoria.localeCompare(b.categoria) || a.precio - b.precio);
+  }
+
   const scored = [...productos]
     .map((producto) => ({ producto, score: scoreProducto(producto, consulta) }))
     .sort((a, b) => b.score - a.score || a.producto.precio - b.producto.precio);
