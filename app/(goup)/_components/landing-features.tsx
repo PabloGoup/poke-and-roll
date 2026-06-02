@@ -1,86 +1,338 @@
+"use client";
+
+import { Bot, ChartNoAxesCombined, ClipboardList, DatabaseZap, MessagesSquare, ShieldAlert, Workflow } from "lucide-react";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useEffect, useRef } from "react";
+import type { CSSProperties } from "react";
+
 const features = [
   {
-    icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-        <path d="M20.52 3.48A12 12 0 0 0 3.48 20.52 12 12 0 0 0 20.52 3.48zM12 22C6.48 22 2 17.52 2 12S6.48 2 12 2s10 4.48 10 10-4.48 10-10 10z" fill="currentColor" opacity=".3"/>
-        <path d="M17.47 6.18C15.77 4.48 13.5 3.5 11.1 3.5c-5.24 0-9.5 4.26-9.5 9.5 0 1.67.44 3.3 1.27 4.76L2 21l3.24-1.87A9.46 9.46 0 0 0 11.1 20.6c5.24 0 9.5-4.26 9.5-9.5 0-2.4-.98-4.77-2.63-6.42zM11.1 19.1a7.98 7.98 0 0 1-4.06-1.1l-.29-.17-3 .79.8-2.93-.19-.3a7.97 7.97 0 0 1-1.26-4.29c0-4.41 3.59-8 8-8 2.14 0 4.15.83 5.66 2.34a7.96 7.96 0 0 1 2.34 5.66c0 4.41-3.59 8-8 8zm4.39-5.99c-.24-.12-1.41-.7-1.63-.77-.22-.08-.38-.12-.54.12-.16.24-.62.77-.76.93-.14.16-.28.18-.52.06-.24-.12-1.01-.37-1.92-1.19-.71-.63-1.19-1.41-1.33-1.65-.14-.24-.01-.37.1-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.3-.74-1.78-.19-.47-.39-.4-.54-.41-.14-.01-.3-.01-.46-.01s-.42.06-.64.3c-.22.24-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.7 2.59 4.11 3.63.57.25 1.02.4 1.37.51.58.18 1.1.16 1.51.1.46-.07 1.41-.58 1.61-1.14.2-.56.2-1.04.14-1.14-.06-.1-.22-.16-.46-.28z" fill="#25D366"/>
-      </svg>
-    ),
-    color: "#25D366",
-    colorSoft: "rgba(37,211,102,0.08)",
-    title: "WhatsApp Business",
-    description:
-      "Responde automáticamente, gestiona pedidos y convierte conversaciones en ventas. Tu agente de IA trabaja mientras tú descansas.",
-    tag: "Activo 24/7",
+    icon: MessagesSquare,
+    title: "Bandeja omnicanal",
+    description: "Centraliza WhatsApp, Instagram y Facebook para que el equipo vea conversaciones, intención, estado y prioridad."
   },
   {
-    icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-        <defs>
-          <linearGradient id="ig-grad" x1="0" y1="24" x2="24" y2="0">
-            <stop offset="0%" stopColor="#FD5949"/>
-            <stop offset="50%" stopColor="#D6249F"/>
-            <stop offset="100%" stopColor="#285AEB"/>
-          </linearGradient>
-        </defs>
-        <rect x="2" y="2" width="20" height="20" rx="6" fill="url(#ig-grad)"/>
-        <circle cx="12" cy="12" r="4.5" stroke="white" strokeWidth="1.5" fill="none"/>
-        <circle cx="17.5" cy="6.5" r="1.2" fill="white"/>
-      </svg>
-    ),
-    color: "#D6249F",
-    colorSoft: "rgba(214,36,159,0.08)",
-    title: "Instagram",
-    description:
-      "Gestiona DMs y comentarios con IA. Nunca pierdas un cliente potencial que llega por tu perfil.",
-    tag: "DMs automáticos",
+    icon: DatabaseZap,
+    title: "Catálogo conectado",
+    description: "El agente responde usando productos, precios, promociones, reglas comerciales y catálogo visual o PDF completo."
   },
   {
-    icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-        <rect x="2" y="2" width="20" height="20" rx="6" fill="#1877F2"/>
-        <path d="M13.5 21v-7.5H16l.5-3H13.5V8.5c0-.83.41-1.5 1.5-1.5H17V4s-1.3-.25-2.5-.25C11.5 3.75 10 5.5 10 8v2.5H7.5v3H10V21h3.5z" fill="white"/>
-      </svg>
-    ),
-    color: "#1877F2",
-    colorSoft: "rgba(24,119,242,0.08)",
-    title: "Facebook",
-    description:
-      "Atiende mensajes de Messenger y comentarios en publicaciones. Mantén tu comunidad activa sin esfuerzo.",
-    tag: "Mensajería y posts",
+    icon: ShieldAlert,
+    title: "Escalamiento seguro",
+    description: "Reclamos, datos incompletos, cancelaciones y casos sensibles pasan a humano con trazabilidad."
   },
+  {
+    icon: ChartNoAxesCombined,
+    title: "Métricas operativas",
+    description: "Mide canales activos, respuestas IA, casos urgentes, contenido pendiente y salud de integraciones."
+  }
+];
+
+const workflow = [
+  ["01", "Recibe", "El mensaje entra desde Meta por canales oficiales."],
+  ["02", "Clasifica", "La IA detecta venta, consulta, reclamo o pedido sensible."],
+  ["03", "Responde", "Usa catálogo y reglas vigentes para sugerir una respuesta útil."],
+  ["04", "Controla", "Escala a humano cuando corresponde y registra la decisión."]
+];
+
+const stackLogos = [
+  { name: "WhatsApp",  src: "https://cdn.simpleicons.org/whatsapp/25D366",           ring: 0, angle: -24  },
+  { name: "Instagram", src: "https://cdn.simpleicons.org/instagram/E4405F",           ring: 0, angle: 142  },
+  { name: "Facebook",  src: "https://cdn.simpleicons.org/facebook/0866FF",            ring: 0, angle: 238  },
+  { name: "Meta",      src: "https://cdn.simpleicons.org/meta/0866FF",                ring: 1, angle: 32   },
+  { name: "Supabase",  src: "https://cdn.simpleicons.org/supabase/3FCF8E",            ring: 1, angle: 126  },
+  { name: "Prisma",    src: "https://cdn.simpleicons.org/prisma/ffffff",              ring: 1, angle: 220  },
+  { name: "Vercel",    src: "https://cdn.simpleicons.org/vercel/ffffff",              ring: 2, angle: -8   },
+  { name: "GitHub",    src: "https://cdn.simpleicons.org/github/ffffff",              ring: 2, angle: 64   },
+  { name: "Gemini",    src: "https://cdn.simpleicons.org/googlegemini/8E75B7",        ring: 2, angle: 154  },
+  { name: "Anthropic", src: "https://cdn.simpleicons.org/anthropic/ffffff",           ring: 2, angle: 228  },
+  { name: "OpenAI",    src: "https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/openai.svg", monochrome: true, ring: 2, angle: 304 }
+];
+
+const orbitGroups = [
+  { radius: 115, duration: 18 },
+  { radius: 195, duration: 28 },
+  { radius: 278, duration: 40 }
 ];
 
 export function LandingFeatures() {
+  const rootRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    gsap.registerPlugin(ScrollTrigger);
+    const root = rootRef.current;
+    if (!root) return;
+
+    const ctx = gsap.context(() => {
+
+      // ── Orbit rings: continuous rotation ──
+      gsap.to(".goup-tech-ring-track", {
+        rotate: 360,
+        duration: (i) => orbitGroups[i]?.duration ?? 26,
+        repeat: -1,
+        ease: "none",
+        transformOrigin: "50% 50%"
+      });
+
+      // ── Ecosystem: reveal copy ──
+      gsap.from(".goup-ecosystem-copy > *", {
+        scrollTrigger: { trigger: ".goup-ecosystem", start: "top 78%" },
+        y: 22,
+        opacity: 0,
+        duration: 0.72,
+        stagger: 0.1,
+        ease: "power3.out"
+      });
+
+      // ── Ecosystem: convergence entry ──
+      // Orbit system starts expanded (2.2×) and contracts into GoUp center.
+      // overflow:hidden on .goup-ecosystem clips the expanded state cleanly.
+      const stOrbit = { trigger: ".goup-ecosystem", start: "top 68%" };
+
+      // Whole core shrinks from expanded scale — animating core only keeps
+      // the 330px element within viewport bounds at 2.2× (726px < 1280px)
+      gsap.fromTo(".goup-ecosystem .goup-tech-core",
+        { scale: 2.2, opacity: 0.7, transformOrigin: "center center" },
+        { scale: 1, opacity: 1, duration: 1.5,
+          ease: "power3.out", scrollTrigger: stOrbit }
+      );
+
+      // Center GoUp: pops in, then starts pulse loop after entry
+      gsap.fromTo(".goup-tech-center",
+        { scale: 0.3, opacity: 0 },
+        { scale: 1, opacity: 1, duration: 0.85,
+          ease: "back.out(1.6)", scrollTrigger: stOrbit,
+          onComplete: () => {
+            gsap.to(".goup-tech-center", {
+              scale: 1.04, duration: 2.6, yoyo: true, repeat: -1, ease: "sine.inOut"
+            });
+          }
+        }
+      );
+
+      // Planets pop in one by one after the system starts converging
+      gsap.fromTo(".goup-tech-planet",
+        { scale: 0, opacity: 0 },
+        { scale: 1, opacity: 1, duration: 0.48,
+          stagger: 0.07, delay: 0.45,
+          ease: "back.out(2)", scrollTrigger: stOrbit }
+      );
+
+      // ── Features: section headers ──
+      gsap.from(".goup-reveal", {
+        scrollTrigger: { trigger: ".goup-features", start: "top 74%" },
+        y: 24,
+        opacity: 0,
+        duration: 0.68,
+        stagger: 0.08,
+        ease: "power3.out"
+      });
+
+      // ── Features: cards with scale + clip reveal ──
+      gsap.from(".goup-feature-card", {
+        scrollTrigger: { trigger: ".goup-features-grid", start: "top 80%" },
+        y: 36,
+        opacity: 0,
+        scale: 0.95,
+        duration: 0.65,
+        stagger: 0.09,
+        ease: "power3.out"
+      });
+
+      // ── Workflow: steps stagger ──
+      gsap.from(".goup-flow-step", {
+        scrollTrigger: { trigger: ".goup-workflow", start: "top 74%" },
+        y: 24,
+        opacity: 0,
+        duration: 0.6,
+        stagger: 0.12,
+        ease: "power3.out"
+      });
+
+      // ── Control: panel parallax ──
+      gsap.to(".goup-control-panel", {
+        scrollTrigger: {
+          trigger: ".goup-control",
+          start: "top bottom",
+          end: "bottom top",
+          scrub: 0.8
+        },
+        y: -34,
+        ease: "none"
+      });
+
+      // ── Control: rows slide in from right ──
+      gsap.from(".goup-control-row", {
+        scrollTrigger: { trigger: ".goup-control", start: "top 76%" },
+        x: 28,
+        opacity: 0,
+        duration: 0.55,
+        stagger: 0.11,
+        ease: "power3.out"
+      });
+
+      // ── Control: cycle active state to show it's live ──
+      const rows = root.querySelectorAll<HTMLElement>(".goup-control-row");
+      if (rows.length) {
+        let activeIdx = 0;
+        const cycleTl = gsap.timeline({
+          scrollTrigger: { trigger: ".goup-control", start: "top 60%" },
+          delay: 1.2,
+          repeat: -1,
+          repeatDelay: 0
+        });
+
+        rows.forEach((_, i) => {
+          const nextIdx = (i + 1) % rows.length;
+          cycleTl
+            .to({}, { duration: 2.2 })
+            .call(() => {
+              rows[activeIdx].classList.remove("active");
+              activeIdx = nextIdx;
+              rows[activeIdx].classList.add("active");
+            });
+        });
+      }
+
+    }, root);
+
+    return () => ctx.revert();
+  }, []);
+
   return (
-    <section className="goup-features" id="features">
-      <div className="goup-features-container">
-        <div className="goup-section-header">
-          <span className="goup-section-eyebrow">Plataforma omnicanal</span>
-          <h2 className="goup-section-title">
-            Todos tus canales,<br />un solo lugar
-          </h2>
-          <p className="goup-section-description">
-            Integra WhatsApp, Instagram y Facebook con un agente de IA entrenado
-            específicamente para tu negocio.
+    <section className="goup-info" ref={rootRef}>
+
+      {/* ── Ecosystem: stack visual with orbit ── */}
+      <section className="goup-ecosystem">
+        <div className="goup-ecosystem-copy">
+          <span>Integraciones</span>
+          <h2>Conectado al stack que ya usas.</h2>
+          <p>Canales oficiales de Meta, modelos de IA y tu infraestructura de datos en una sola plataforma operativa.</p>
+        </div>
+
+        <div className="goup-ecosystem-orbit goup-tech-system" aria-label="Stack tecnológico Goup">
+          <div className="goup-tech-core">
+            <div className="goup-tech-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/images/goup.png" alt="Goup Soluciones" width={84} height={28} style={{ width: 84, height: "auto", filter: "brightness(0) invert(1)" }} />
+            </div>
+            {orbitGroups.map((orbit, ringIndex) => (
+              <div
+                className="goup-tech-ring"
+                key={orbit.radius}
+                style={{ "--orbit-radius": `${orbit.radius}px` } as CSSProperties}
+              >
+                <span className="goup-tech-ring-line" />
+                <div className="goup-tech-ring-tilt">
+                <div className="goup-tech-ring-track">
+                  {stackLogos
+                    .filter((logo) => logo.ring === ringIndex)
+                    .map((logo) => (
+                      <div
+                        className="goup-tech-planet"
+                        key={logo.name}
+                        title={logo.name}
+                        style={{ "--planet-angle": `${logo.angle}deg` } as CSSProperties}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          alt={logo.name}
+                          src={logo.src}
+                          width={22}
+                          height={22}
+                          className={logo.monochrome ? "is-monochrome" : undefined}
+                          loading="lazy"
+                        />
+                        <span>{logo.name}</span>
+                      </div>
+                    ))}
+                </div>
+                </div>{/* /goup-tech-ring-tilt */}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Product features ── */}
+      <section className="goup-features goup-landing-section" id="features">
+        <div className="goup-section-kicker goup-reveal">Producto</div>
+        <div className="goup-section-heading goup-reveal">
+          <h2>Un sistema de atención diseñado para vender sin perder control.</h2>
+          <p>
+            La plataforma combina IA, catálogo, reglas de negocio y supervisión humana para que la operación comercial responda rápido sin prometer datos falsos.
           </p>
         </div>
 
         <div className="goup-features-grid">
-          {features.map((f) => (
-            <div
-              key={f.title}
-              className="goup-feature-card"
-              style={{ "--card-accent": f.color, "--card-soft": f.colorSoft } as React.CSSProperties}
-            >
-              <div className="goup-feature-icon">{f.icon}</div>
-              <div className="goup-feature-tag">{f.tag}</div>
-              <h3 className="goup-feature-title">{f.title}</h3>
-              <p className="goup-feature-description">{f.description}</p>
-            </div>
+          {features.map((feature) => {
+            const Icon = feature.icon;
+            return (
+              <article className="goup-feature-card" key={feature.title}>
+                <div className="goup-feature-icon">
+                  <Icon size={20} />
+                </div>
+                <h3>{feature.title}</h3>
+                <p>{feature.description}</p>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ── Operational workflow ── */}
+      <section className="goup-workflow goup-landing-section" id="workflow">
+        <div className="goup-workflow-copy">
+          <span>Flujo operativo</span>
+          <h2>Del mensaje entrante a una respuesta lista para enviar.</h2>
+        </div>
+        <div className="goup-flow-grid">
+          {workflow.map(([number, title, description]) => (
+            <article className="goup-flow-step" key={number}>
+              <strong>{number}</strong>
+              <h3>{title}</h3>
+              <p>{description}</p>
+            </article>
           ))}
         </div>
-      </div>
+      </section>
+
+      {/* ── Commercial control ── */}
+      <section className="goup-control goup-landing-section" id="control">
+        <div className="goup-control-copy">
+          <span>Control comercial</span>
+          <h2>Edita promociones, catálogo visual y criterios del agente.</h2>
+          <p>
+            Configura promociones del día, productos destacados, catálogo PDF, imágenes prioritarias y reglas de respuesta sin tocar el prompt base.
+          </p>
+        </div>
+
+        <div className="goup-control-panel">
+          <div className="goup-control-row active">
+            <ClipboardList size={16} />
+            <div>
+              <strong>Catálogo completo</strong>
+              <span>PDF o imagen enviada como primera opción</span>
+            </div>
+          </div>
+          <div className="goup-control-row">
+            <Bot size={16} />
+            <div>
+              <strong>Reglas del agente</strong>
+              <span>Promos, roll del día, extras y escalamiento</span>
+            </div>
+          </div>
+          <div className="goup-control-row">
+            <Workflow size={16} />
+            <div>
+              <strong>Auditoría de decisiones</strong>
+              <span>Respuesta, intención y seguridad registradas</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
     </section>
   );
 }

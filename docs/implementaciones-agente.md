@@ -296,3 +296,48 @@ Validacion:
 - `GET /api/catalogo/pdf`: OK, devuelve `menú2026.pdf` como PDF.
 - Caso probado: `quiero ver el menú completo para ver si a algún roll le puedo sacar la palta`.
 - Resultado esperado validado: `requiereHumano=false`, `decisionSeguridad=aprobado`, catalogo `menú2026.pdf`, respuesta indica sin costo y observacion de orden.
+
+## 12. Landing SaaS interactivo con GSAP
+
+Fecha: 2026-06-02
+
+Cambios realizados:
+
+- Se rediseño el landing de `/` con estilo visual inspirado en la referencia `merlin.jpg`.
+- Se instalo `gsap` para animaciones client-side.
+- Se agrego hero SaaS con fondo fotografico remoto, nav, CTA, metricas de prueba y panel visual de consola IA.
+- Se agregaron animaciones GSAP:
+  - Entrada escalonada del hero.
+  - Entrada de mensajes simulados.
+  - Orbita decorativa continua.
+  - Movimiento sutil del panel con mouse.
+  - Aparicion de secciones al hacer scroll con `ScrollTrigger`.
+- Se reemplazo la seccion de funciones por bloques informativos de producto, flujo operativo y control comercial.
+- Se definio metadata especifica del landing: `Goup Soluciones — Agentes IA para negocios`.
+
+Validacion:
+
+- `npm run lint`: OK con 8 warnings preexistentes en componentes no relacionados.
+- `npm run build`: OK.
+- `GET /`: OK, devuelve HTML 200 con el nuevo landing.
+
+## 13. Ecosistema tecnologico orbital en landing
+
+Fecha: 2026-06-02
+
+Cambios realizados:
+
+- Se reemplazo la franja de logos por un sistema orbital dentro del hero.
+- El logo de Goup queda como nucleo central y las herramientas orbitan alrededor como un sistema solar.
+- Se incorporaron iconos de marca para Vercel, Prisma, Supabase, Meta, Instagram, Facebook, WhatsApp, GitHub, Gemini, Anthropic y OpenAI.
+- Se agregaron animaciones GSAP para entrada de planetas, rotacion continua de orbitas y pulso sutil del nucleo Goup.
+- Se elimino el borde, titulo y fondo tipo card del sistema orbital para integrarlo visualmente al fondo del hero.
+- Se ubico el sistema orbital debajo de las metricas `3 canales`, `24/7` y `Auditable`.
+- La consola IA queda como visual de producto independiente en la columna derecha.
+
+Validacion:
+
+- `npm run lint`: OK con 8 warnings preexistentes en componentes no relacionados.
+- `npm run build`: OK.
+- `GET /`: OK, devuelve HTML 200 con el nuevo bloque de stack tecnologico.
+- Revision visual en Safari: OK, el sistema orbital queda debajo de las metricas, sin borde, sin titulo visible y sin aspecto de tarjeta.
