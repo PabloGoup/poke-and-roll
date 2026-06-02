@@ -876,6 +876,12 @@ blockquote { margin: 0 0 6px; color: var(--muted); font-size: 13px; line-height:
 
   .shell { padding-bottom: 56px; }
   .main-content { padding: 0 16px 24px; }
+
+  /* Channel fullview: compensar topbar 62px + bottom nav 56px */
+  .channel-fullview {
+    margin: 0 -16px -24px;
+    height: calc(100svh - 62px - 56px);
+  }
   .brand-hero {
     min-height: 210px;
     margin: 0 -16px;
