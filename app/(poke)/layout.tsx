@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SessionProvider } from "next-auth/react";
 
 export const metadata: Metadata = {
   title: "Poke & Roll — Dashboard",
@@ -6,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function PokeLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+  return <SessionProvider>{children}</SessionProvider>;
 }
