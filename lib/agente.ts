@@ -12,7 +12,11 @@ export const mensajeEntranteSchema = z.object({
   canal: z.enum(["whatsapp", "instagram", "facebook"]),
   cliente: z.string().min(1),
   texto: z.string().min(1),
-  conversacionId: z.string().optional()
+  conversacionId: z.string().optional(),
+  historial: z.array(z.object({
+    rol: z.enum(["cliente", "agente"]),
+    texto: z.string().min(1)
+  })).max(12).optional()
 });
 
 export type MensajeEntrante = z.infer<typeof mensajeEntranteSchema>;
@@ -31,14 +35,24 @@ type DecisionAgente = {
   } | null;
 };
 
+function serializarHistorial(mensaje: MensajeEntrante) {
+  const historial = mensaje.historial?.slice(-8) ?? [];
+  if (historial.length === 0) return "";
+
+  return historial
+    .map((item) => `${item.rol === "cliente" ? "Cliente" : "Agente"}: ${item.texto}`)
+    .join("\n");
+}
+
 const palabrasReclamo = ["atraso", "demora", "malo", "reclamo", "equivocado", "frio", "no llego", "nunca llego", "cancelar", "mala calidad", "nunca llegó"];
-const palabrasVenta = ["quiero", "promo", "combo", "comprar", "pedido", "recomienda", "cuanto", "cuánto", "precio", "vale", "menu", "menú", "carta", "pedir", "opciones", "tienen", "hay algo", "sin palta", "palta", "salmon", "salmón", "que tienen", "que hay"];
+const palabrasVenta = ["quiero", "promo", "combo", "comprar", "pedido", "recomienda", "cuanto", "cuánto", "precio", "vale", "menu", "menú", "carta", "pedir", "opciones", "tienen", "hay algo", "sin palta", "palta", "salmon", "salmón", "cambiar", "cambio", "reemplazar", "que tienen", "que hay"];
 const palabrasHorario = ["hora", "horario", "cierran", "abren", "abierto", "cerrado", "cuando abren", "cuando cierran"];
 const palabrasPago = ["pago", "pagar", "transferencia", "tarjeta", "efectivo", "como pago"];
 const palabrasDespacho = ["delivery", "despacho", "envio", "envío", "reparto", "domicilio", "llevan", "mandan"];
 const palabrasRetiro = ["retiro", "retirar", "retiro en local", "retirar en local", "pasar a buscar", "buscar al local"];
 const palabrasQuitarProducto = ["sacar", "quitar", "sin", "no poner", "retirar", "omitir"];
 const palabrasAlergia = ["alergia", "alergica", "alergico", "alérgica", "alérgico", "intolerancia"];
+const palabrasCambioProducto = ["cambiar", "cambio", "cambiame", "cámbiame", "reemplazar", "reemplazame", "modificar", "sustituir", "por pollo", "por salmon", "por salmón", "por carne", "todo por"];
 
 export function clasificarIntencion(texto: string) {
   const n = texto.toLowerCase();
@@ -65,7 +79,46 @@ function esSolicitudQuitarProducto(texto: string) {
   if (/\b(retiro|retirar|retira|retirarlo|retirarla)\s+(en|por)\s+(local|tienda)\b/.test(normalizado)) return false;
   if (/\b(pasar|voy)\s+a\s+retirar\b/.test(normalizado)) return false;
   if (/\bsushi\s+sin\s+arroz\b/.test(normalizado)) return false;
+  if (esSolicitudCambioProducto(texto)) return false;
   return palabrasQuitarProducto.some((p) => normalizado.includes(normalizar(p)));
+}
+
+function esSolicitudCambioProducto(texto: string) {
+  const normalizado = normalizar(texto);
+  if (esConsultaRetiroLocal(texto)) return false;
+  return palabrasCambioProducto.some((p) => normalizado.includes(normalizar(p)));
+}
+
+function esCambioEnvoltura(texto: string) {
+  const normalizado = normalizar(texto);
+  return /\b(envuelto|envuelta|envolver|envoltura|env)\b/.test(normalizado);
+}
+
+function pideEnvolturaSalmon(texto: string) {
+  const normalizado = normalizar(texto);
+  return esCambioEnvoltura(texto) && /\bsalmon\b/.test(normalizado);
+}
+
+function esCambioProteinaPremium(texto: string) {
+  const normalizado = normalizar(texto);
+  return /\b(salmon|carne|beef)\b/.test(normalizado) && !esCambioEnvoltura(texto);
+}
+
+function redactarRespuestaCambioProducto(mensaje: MensajeEntrante) {
+  if (pideEnvolturaSalmon(mensaje.texto)) {
+    return "Podemos hacer cambios de envoltura con recargo de $1.000, pero no trabajamos envuelto en salmón. Si quieres, puedo dejarlo envuelto en palta, queso, sésamo o ciboulette según disponibilidad.";
+  }
+
+  if (esCambioEnvoltura(mensaje.texto)) {
+    return "Sí, podemos cambiar la envoltura con recargo de $1.000 por cambio. Lo dejamos detallado como observación en la orden para que cocina lo prepare correctamente. ¿Qué envoltura quieres usar?";
+  }
+
+  const recargo = esCambioProteinaPremium(mensaje.texto) ? "$1.500" : "$1.000";
+  const detalle = esCambioProteinaPremium(mensaje.texto)
+    ? "cuando el cambio del interior principal es por salmón o carne"
+    : "cuando el cambio del interior principal es por pollo, camarón, kanikama, palmito, champiñón u otro vegetal/proteína estándar";
+
+  return `Sí, podemos cambiar el interior principal, pero no es gratis: el recargo es de ${recargo} por cambio ${detalle}. Quitar un ingrediente sin reemplazarlo sí es gratis; cambiarlo por otro ingrediente debe quedar detallado en la orden. ¿Qué producto quieres modificar y por qué ingrediente lo cambiamos?`;
 }
 
 function mencionaAlergia(texto: string) {
@@ -88,7 +141,9 @@ function esSolicitudCatalogoVisual(texto: string) {
     || normalizado.includes("ver el menu")
     || normalizado.includes("menu completo")
     || normalizado.includes("catalogo completo");
-  const pidePromociones = /\b(promo|promos|promocion|promociones)\b/.test(normalizado);
+  const pidePromociones =
+    /\b(que|cuales|cuáles|ver|mandame|mándame|enviame|envíame|tienen|hay)\b.*\b(promo|promos|promocion|promociones)\b/.test(normalizado)
+    || /\b(promo|promos|promocion|promociones)\b.*\b(tienen|hay|disponibles|vigentes|ver|mandame|mándame|enviame|envíame)\b/.test(normalizado);
   const pidePrecios = /\b(precios|lista de precios)\b/.test(normalizado);
   const pideVistaGeneral = normalizado.includes("que tienen")
     || normalizado.includes("que venden")
@@ -112,6 +167,12 @@ function esSolicitudCatalogoCompleto(texto: string) {
     || normalizado.includes("ver el menu")
     || normalizado.includes("menu completo")
     || normalizado.includes("catalogo completo");
+}
+
+function esSolicitudListadoPromociones(texto: string) {
+  const normalizado = normalizar(texto);
+  return /\b(que|cuales|cuáles|ver|mandame|mándame|enviame|envíame|tienen|hay)\b.*\b(promo|promos|promocion|promociones)\b/.test(normalizado)
+    || /\b(promo|promos|promocion|promociones)\b.*\b(tienen|hay|disponibles|vigentes|ver|mandame|mándame|enviame|envíame)\b/.test(normalizado);
 }
 
 function redactarRespuestaVenta(mensaje: MensajeEntrante, contexto: ContextoNegocio) {
@@ -223,6 +284,15 @@ export function redactarRespuestaBase(mensaje: MensajeEntrante, contexto?: Conte
       };
     }
 
+    if (esSolicitudCambioProducto(mensaje.texto)) {
+      return {
+        ...c,
+        requiereHumano: false,
+        respuesta: redactarRespuestaCambioProducto(mensaje),
+        decisionSeguridad: "aprobado"
+      };
+    }
+
     if (esSolicitudQuitarProducto(mensaje.texto)) {
       return {
         ...c,
@@ -265,8 +335,10 @@ Reglas:
 - Si preguntan si pueden retirar en local, responde que si pueden retirar en local y no escales a humano
 - No digas que puedes enviar catalogo visual salvo que el contexto indique explicitamente que hay un catalogo visual prioritario disponible
 - Si no hay catalogo visual disponible, no expliques que falta el catalogo; responde con alternativas del catalogo de productos
-- Si el cliente quiere sacar, quitar, retirar u omitir un ingrediente o producto del armado, no escales a humano y no cobres adicional. Indica que se puede hacer sin costo y que debe quedar detallado como observacion de la orden
-- Si el cliente pide "sin palta" u otro ingrediente sin mencionar alergia grave, tratalo como modificacion normal sin costo. Si declara alergia, pide confirmacion y deja observacion clara para cocina
+- Si el cliente quiere sacar, quitar, retirar u omitir un ingrediente o producto del armado SIN reemplazarlo por otro, no escales a humano y no cobres adicional. Indica que se puede hacer sin costo y que debe quedar detallado como observacion de la orden
+- Si el cliente pide "sin palta" u otro ingrediente sin mencionar alergia grave, tratalo como quitar ingrediente gratis. Si declara alergia, pide confirmacion y deja observacion clara para cocina
+- Si el cliente quiere cambiar, reemplazar o sustituir el interior principal por otro ingrediente, NO digas que es gratis: el cambio cuesta $1.000 por cambio. Si el cambio es por salmón o carne, cuesta $1.500 por cambio
+- Si el cliente quiere cambiar envoltura, el cambio cuesta $1.000. No trabajamos envuelto en salmón
 - Si el cliente declara alergia o intolerancia, requiereHumano debe ser true y decisionSeguridad "escalar_a_humano"
 - Para venta, recomienda 1 a 3 opciones concretas del catalogo y haz una pregunta de cierre
 - Para reclamos, pide nombre y numero de pedido`;
@@ -341,7 +413,33 @@ function sanitizarTono(respuesta: string, hayCatalogoVisual: boolean) {
   return limpia.replace(/\s{2,}/g, " ").trim();
 }
 
+// Solo reglas de seguridad — para mensajes con historial donde el modelo ya tiene contexto
+function aplicarSoloReglasSeguridad(decision: DecisionAgente, mensaje: MensajeEntrante): DecisionAgente {
+  if (mencionaAlergia(mensaje.texto)) {
+    return {
+      ...decision,
+      agente: "Ventas",
+      intencion: "venta",
+      requiereHumano: true,
+      respuesta: "Tenemos opciones que pueden adaptarse, pero como mencionas alergia prefiero que el equipo confirme la preparación segura antes de cerrar el pedido. ¿Qué producto te interesa y qué ingrediente debemos evitar?",
+      decisionSeguridad: "escalar_a_humano"
+    };
+  }
+  return decision;
+}
+
 function aplicarReglasNegocioLocales(decision: DecisionAgente, mensaje: MensajeEntrante): DecisionAgente {
+  if (pideEnvolturaSalmon(mensaje.texto)) {
+    return {
+      ...decision,
+      agente: "Ventas",
+      intencion: "venta",
+      requiereHumano: false,
+      respuesta: redactarRespuestaCambioProducto(mensaje),
+      decisionSeguridad: "aprobado"
+    };
+  }
+
   if (esConsultaRetiroLocal(mensaje.texto)) {
     return {
       ...decision,
@@ -362,6 +460,17 @@ function aplicarReglasNegocioLocales(decision: DecisionAgente, mensaje: MensajeE
       respuesta:
         "Tenemos opciones que pueden adaptarse, pero como mencionas alergia prefiero que el equipo confirme la preparación segura antes de cerrar el pedido. ¿Qué producto te interesa y qué ingrediente debemos evitar?",
       decisionSeguridad: "escalar_a_humano"
+    };
+  }
+
+  if (esSolicitudCambioProducto(mensaje.texto)) {
+    return {
+      ...decision,
+      agente: "Ventas",
+      intencion: "venta",
+      requiereHumano: false,
+      respuesta: redactarRespuestaCambioProducto(mensaje),
+      decisionSeguridad: "aprobado"
     };
   }
 
@@ -404,7 +513,7 @@ export async function generarRespuesta(mensaje: MensajeEntrante): Promise<Decisi
     const intro = esPdf
       ? "Te adjunto el catálogo completo en PDF."
       : "Te adjunto el catálogo visual.";
-    if (esSolicitudCatalogoCompleto(mensaje.texto)) {
+    if (esSolicitudCatalogoCompleto(mensaje.texto) || esSolicitudListadoPromociones(mensaje.texto)) {
       return {
         ...decision,
         respuesta: sanitizarTono(`${intro} ¿Quieres que te ayude a elegir rolls, pokes o promociones?`, true),
@@ -446,22 +555,31 @@ export async function generarRespuesta(mensaje: MensajeEntrante): Promise<Decisi
   }
 
   try {
+    // Contexto del negocio como primer mensaje de sistema
+    const contextMsg = [
+      `Canal activo: ${mensaje.canal}. Cliente: ${mensaje.cliente}.`,
+      `Catalogo visual prioritario: ${catalogoVisual ? `disponible (${catalogoVisual.tipo}: ${catalogoVisual.nombre})` : "no disponible"}`,
+      "",
+      "Contexto de catalogo disponible:",
+      serializarContextoNegocio(contexto)
+    ].join("\n");
+
+    // Historial como turnos reales de conversación
+    const historialMsgs: { role: "user" | "assistant"; content: string }[] = (mensaje.historial ?? [])
+      .slice(-8)
+      .map((h) =>
+        h.rol === "cliente"
+          ? { role: "user" as const, content: h.texto }
+          : { role: "assistant" as const, content: h.texto }
+      );
+
     const completion = await openai.chat.completions.create({
       model: getModel(),
       response_format: { type: "json_object" },
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: [
-            `Canal: ${mensaje.canal}. Cliente: ${mensaje.cliente}. Mensaje: "${mensaje.texto}"`,
-            "",
-            `Catalogo visual prioritario: ${catalogoVisual ? `disponible (${catalogoVisual.tipo}: ${catalogoVisual.nombre})` : "no disponible"}`,
-            "",
-            "Contexto de catalogo disponible:",
-            serializarContextoNegocio(contexto)
-          ].join("\n")
-        }
+        { role: "system", content: `${SYSTEM_PROMPT}\n\n${contextMsg}` },
+        ...historialMsgs,
+        { role: "user", content: mensaje.texto }
       ]
     });
 
@@ -473,13 +591,20 @@ export async function generarRespuesta(mensaje: MensajeEntrante): Promise<Decisi
       consulta: "Atencion al Cliente"
     };
 
-    const decisionModelo = aplicarReglasNegocioLocales({
+    const decisionBase = {
       agente: agentes[intencion] ?? "Atencion al Cliente",
       intencion,
       requiereHumano: Boolean(parsed.requiereHumano),
       respuesta: sanitizarTono(parsed.respuesta ?? respuestaFallback.respuesta, Boolean(catalogoVisual)),
       decisionSeguridad: parsed.decisionSeguridad ?? (parsed.requiereHumano ? "escalar_a_humano" : "aprobado")
-    }, mensaje);
+    };
+
+    // Con historial el modelo ya tiene contexto conversacional —
+    // solo aplicar reglas de seguridad (alergia), no las de plantilla
+    const tieneHistorial = (mensaje.historial?.length ?? 0) > 0;
+    const decisionModelo = tieneHistorial
+      ? aplicarSoloReglasSeguridad(decisionBase, mensaje)
+      : aplicarReglasNegocioLocales(decisionBase, mensaje);
 
     return aplicarCatalogoVisual(decisionModelo);
   } catch (err) {
