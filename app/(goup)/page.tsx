@@ -1,0 +1,13 @@
+import { LandingHero } from "./_components/landing-hero";
+import { LandingFeatures } from "./_components/landing-features";
+import { GoupFooter } from "./_components/goup-footer";
+
+export default function LandingPage() {
+  return (
+    <div className="goup-page">
+      <LandingHero />
+      <LandingFeatures />
+      <GoupFooter />
+    </div>
+  );
+}

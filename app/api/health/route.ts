@@ -29,7 +29,7 @@ export async function GET() {
     servicio: "poke-and-roll-agente",
     baseDatos,
     integraciones: {
-      openai: estaConfigurada("OPENAI_API_KEY"),
+      openai: estaConfigurada("GEMINI_API_KEY") || estaConfigurada("GROQ_API_KEY") || estaConfigurada("OPENAI_API_KEY"),
       metaApp: estaConfigurada("META_APP_ID") && estaConfigurada("META_APP_SECRET"),
       metaToken: estaConfigurada("META_ACCESS_TOKEN"),
       instagram: estaConfigurada("INSTAGRAM_BUSINESS_ACCOUNT_ID"),

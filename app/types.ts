@@ -18,6 +18,12 @@ export type DecisionResponse = {
     requiereHumano: boolean;
     respuesta: string;
     decisionSeguridad: string;
+    catalogoVisual?: {
+      nombre: string;
+      url: string;
+      tipo: string;
+      prioridadEnvio: boolean;
+    } | null;
   };
   error?: string;
 };

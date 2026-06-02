@@ -1,5 +1,1 @@
-import DashboardClient from "@/app/dashboard-client";
-
-export default function Home() {
-  return <DashboardClient />;
-}
+export { default } from "@/app/(goup)/page";

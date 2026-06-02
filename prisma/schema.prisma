@@ -46,6 +46,31 @@ enum EstadoAlerta {
   fallida
 }
 
+enum PrioridadComercial {
+  alta
+  media
+  baja
+}
+
+enum CanalComercial {
+  todos
+  whatsapp
+  instagram
+  facebook
+}
+
+enum TipoItemComercial {
+  menu
+  promocion
+}
+
+enum TipoCatalogoVisual {
+  catalogo
+  promocion
+  roll_dia
+  menu_dia
+}
+
 model Cliente {
   id              String         @id @default(cuid())
   instagramId    String?        @unique @map("instagram_id")
@@ -154,6 +179,47 @@ model MedioPago {
   instrucciones String?
 
   @@map("medios_pago")
+}
+
+model ReglaComercialAgente {
+  id             String              @id
+  titulo         String
+  descripcion   String
+  activa         Boolean             @default(true)
+  prioridad      PrioridadComercial  @default(media)
+  canal          CanalComercial      @default(todos)
+  creadoEn       DateTime            @default(now()) @map("creado_en")
+  actualizadoEn  DateTime            @updatedAt @map("actualizado_en")
+
+  @@map("reglas_comerciales_agente")
+}
+
+model ItemComercialDestacado {
+  id             String            @id @default(cuid())
+  tipo           TipoItemComercial
+  nombre         String
+  detalle        String
+  precioTexto    String?           @map("precio_texto")
+  activo         Boolean           @default(true)
+  creadoEn       DateTime          @default(now()) @map("creado_en")
+  actualizadoEn  DateTime          @updatedAt @map("actualizado_en")
+
+  @@map("items_comerciales_destacados")
+}
+
+model CatalogoVisualAgente {
+  id              String              @id @default(cuid())
+  nombre          String
+  url             String
+  storagePath     String?             @map("storage_path")
+  tipo            TipoCatalogoVisual  @default(catalogo)
+  prioridadEnvio  Boolean             @default(false) @map("prioridad_envio")
+  activo          Boolean             @default(true)
+  creadoEn        DateTime            @default(now()) @map("creado_en")
+  actualizadoEn   DateTime            @updatedAt @map("actualizado_en")
+
+  @@index([prioridadEnvio, activo])
+  @@map("catalogos_visuales_agente")
 }
 
 model Reclamo {

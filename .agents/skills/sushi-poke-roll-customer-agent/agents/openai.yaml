@@ -1,0 +1,4 @@
+interface:
+  display_name: "Sushi Poke & Roll Customer Agent"
+  short_description: "Atención, ventas y pedidos para Sushi Poke & Roll"
+  default_prompt: "Actúa como agente de atención y ventas de Sushi Poke & Roll."
