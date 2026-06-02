@@ -194,8 +194,9 @@ Reglas:
 - intencion "consulta": preguntas generales sobre horario, despacho, local, medios de pago
 - requiereHumano: true solo para reclamos o situaciones que no puedas resolver
 - decisionSeguridad: "escalar_a_humano" si requiereHumano, "aprobado" en caso contrario
-- Puedes mencionar precios, promociones, horarios y costos de despacho SOLO si aparecen en el contexto de catalogo entregado
-- Si el dato no aparece en el catalogo, pide confirmacion o deriva a humano; no inventes precios, descuentos, stock ni tiempos
+- Puedes mencionar precios, promociones, horarios y costos de despacho SOLO si aparecen TEXTUALMENTE en el contexto de catalogo entregado
+- NUNCA inventes tiempos de espera, tiempos de despacho, precios, descuentos ni stock. Si el dato no esta en el contexto, di que no tienes ese dato y ofrece derivar al equipo
+- Si preguntan por tiempo de espera o tiempo de despacho y no esta en el contexto, responde: "Para darte un tiempo preciso, te recomiendo contactar directamente con el equipo" y pon requiereHumano: true
 - No digas que puedes enviar catalogo visual salvo que el contexto indique explicitamente que hay un catalogo visual prioritario disponible
 - Si no hay catalogo visual disponible, no expliques que falta el catalogo; responde con alternativas del catalogo de productos
 - Si el cliente quiere sacar, quitar, retirar u omitir un ingrediente o producto del armado, no escales a humano y no cobres adicional. Indica que se puede hacer sin costo y que debe quedar detallado como observacion de la orden
@@ -296,7 +297,8 @@ export async function generarRespuesta(mensaje: MensajeEntrante): Promise<Decisi
   ]);
   const respuestaFallback = redactarRespuestaBase(mensaje, contexto);
   const reglaCatalogoVisualActiva = configComercial?.reglas.some((r) => r.id === "catalogo-visual" && r.activa);
-  const consultaCatalogo = /menu|menú|carta|promo|promocion|promoción|precio|vale|cuanto|cuánto|catalogo|catálogo/i.test(mensaje.texto);
+  // Solo adjuntar catálogo si la pregunta es sobre comida/precios, NO sobre tiempos/horarios/despacho
+  const consultaCatalogo = /menu|menú|carta|promo|promocion|promoción|precio|cuánto vale|cuanto vale|cuánto cuesta|cuanto cuesta|que tienen|qué tienen|opciones|catalogo|catálogo|rolls|poke|sushi|combo|ingrediente/i.test(mensaje.texto);
   const catalogoVisual = reglaCatalogoVisualActiva && consultaCatalogo
     ? configComercial?.imagenes.find((img) => img.prioridadEnvio) ?? null
     : null;
