@@ -2431,16 +2431,23 @@ blockquote { margin: 0 0 6px; color: var(--muted); font-size: 13px; line-height:
     grid-template-columns: 1fr;
   }
 
-  .goup-tech-system {
-    width: min(100%, 360px);
-    min-height: 280px;
+  .goup-ecosystem .goup-tech-system {
+    width: 100%;
+    max-width: 360px;
+    min-height: 250px;
     margin-top: 18px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
   }
 
-  .goup-tech-core {
-    width: 300px;
-    height: 270px;
-    scale: 0.82;
+  .goup-ecosystem .goup-tech-core {
+    width: 280px;
+    height: 250px;
+    scale: 0.52;
+    margin: 0 auto;
+    display: grid;
+    place-items: center;
   }
 
   .goup-flow-step {

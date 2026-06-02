@@ -90,13 +90,23 @@ export function LandingFeatures() {
       // overflow:hidden on .goup-ecosystem clips the expanded state cleanly.
       const stOrbit = { trigger: ".goup-ecosystem", start: "top 68%" };
 
-      // Whole core shrinks from expanded scale — animating core only keeps
-      // the 330px element within viewport bounds at 2.2× (726px < 1280px)
-      gsap.fromTo(".goup-ecosystem .goup-tech-core",
-        { scale: 2.2, opacity: 0.7, transformOrigin: "center center" },
-        { scale: 1, opacity: 1, duration: 1.5,
-          ease: "power3.out", scrollTrigger: stOrbit }
-      );
+      // We use matchMedia to adjust core scale dynamically for mobile viewports
+      const mm = gsap.matchMedia();
+
+      mm.add({
+        isMobile: "(max-width: 680px)",
+        isDesktop: "(min-width: 681px)"
+      }, (context) => {
+        const { isMobile } = context.conditions as { isMobile: boolean };
+        const targetScale = isMobile ? 0.52 : 1;
+        const startScale = isMobile ? 1.2 : 2.2;
+
+        gsap.fromTo(".goup-ecosystem .goup-tech-core",
+          { scale: startScale, opacity: 0.7, transformOrigin: "center center" },
+          { scale: targetScale, opacity: 1, duration: 1.5,
+            ease: "power3.out", scrollTrigger: stOrbit }
+        );
+      });
 
       // Center GoUp: pops in, then starts pulse loop after entry
       gsap.fromTo(".goup-tech-center",
