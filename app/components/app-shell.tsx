@@ -101,22 +101,20 @@ export function AppShell({ children, vista, onVistaChange }: Props) {
         </footer>
       )}
 
-      {/* Mobile bottom nav — hidden in full-screen canal views */}
-      {!isCanal && (
-        <nav className="mobile-bottom-nav">
-          {navItems.slice(0, 5).map((item) => (
-            <button
-              className={`nav-btn-mobile${vista === item.vista ? " active" : ""}`}
-              key={item.vista}
-              onClick={() => onVistaChange(item.vista)}
-              type="button"
-            >
-              <item.icono size={20} />
-              <span>{item.label}</span>
-            </button>
-          ))}
-        </nav>
-      )}
+      {/* Mobile bottom nav — always visible */}
+      <nav className="mobile-bottom-nav">
+        {navItems.slice(0, 5).map((item) => (
+          <button
+            className={`nav-btn-mobile${vista === item.vista ? " active" : ""}`}
+            key={item.vista}
+            onClick={() => onVistaChange(item.vista)}
+            type="button"
+          >
+            <item.icono size={20} />
+            <span>{item.label}</span>
+          </button>
+        ))}
+      </nav>
     </div>
   );
 }
