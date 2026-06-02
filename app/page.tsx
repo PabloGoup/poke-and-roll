@@ -1,8 +1,8 @@
 "use client";
 
-import { LandingHero } from "./_components/landing-hero";
-import { LandingFeatures } from "./_components/landing-features";
-import { GoupFooter } from "./_components/goup-footer";
+import { LandingHero } from "./_components_goup/landing-hero";
+import { LandingFeatures } from "./_components_goup/landing-features";
+import { GoupFooter } from "./_components_goup/goup-footer";
 
 export default function LandingPage() {
   return (
