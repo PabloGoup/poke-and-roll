@@ -4907,3 +4907,215 @@ select {
     flex-direction: column;
   }
 }
+
+/* ═══════════════════════════════════════════════════
+   GOUP LEGAL PAGES — Privacidad + Eliminación datos
+   ═══════════════════════════════════════════════════ */
+
+.goup-legal-shell {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  padding: 52px 24px 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.goup-legal-card {
+  width: 100%;
+  max-width: 740px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px;
+  background: rgba(255,255,255,0.04);
+  padding: clamp(28px, 5vw, 52px);
+}
+
+.goup-legal-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 32px;
+  color: rgba(255,255,255,0.38);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 150ms var(--goup-ease-out);
+}
+
+.goup-legal-back:hover { color: rgba(255,255,255,0.72); }
+
+.goup-legal-kicker {
+  font-size: 11px;
+  font-weight: 800;
+  color: #ff9a4f;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-bottom: 10px;
+  display: block;
+}
+
+.goup-legal-card h1 {
+  font-size: clamp(28px, 4.5vw, 44px);
+  font-weight: 800;
+  letter-spacing: -0.044em;
+  color: #fff;
+  line-height: 1.06;
+  margin-bottom: 8px;
+}
+
+.goup-legal-updated {
+  font-size: 12px;
+  color: rgba(255,255,255,0.28);
+  display: block;
+  margin-bottom: 0;
+}
+
+.goup-legal-content {
+  margin-top: 32px;
+  display: flex;
+  flex-direction: column;
+}
+
+.goup-legal-section {
+  padding: 22px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.goup-legal-section:last-child { border-bottom: none; }
+
+.goup-legal-section:first-child { padding-top: 0; }
+
+.goup-legal-section h2 {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.015em;
+  margin-bottom: 12px;
+}
+
+.goup-legal-section p {
+  font-size: 14px;
+  line-height: 1.72;
+  color: rgba(255,255,255,0.52);
+  margin-bottom: 0;
+}
+
+.goup-legal-section p + p { margin-top: 10px; }
+
+.goup-legal-section ul {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 0;
+  display: grid;
+  gap: 7px;
+}
+
+.goup-legal-section li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13.5px;
+  line-height: 1.58;
+  color: rgba(255,255,255,0.5);
+}
+
+.goup-legal-section li::before {
+  content: "—";
+  flex-shrink: 0;
+  color: #ff9a4f;
+  opacity: 0.6;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.goup-legal-link {
+  color: #ff9a4f;
+  text-decoration: underline;
+  text-decoration-color: rgba(255,154,79,0.35);
+  text-underline-offset: 3px;
+  transition: color 140ms, text-decoration-color 140ms;
+}
+
+.goup-legal-link:hover {
+  color: #ffb87a;
+  text-decoration-color: rgba(255,184,122,0.6);
+}
+
+/* ── Deletion steps ── */
+
+.goup-deletion-steps {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.goup-deletion-step {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 18px;
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 13px;
+  background: rgba(255,255,255,0.03);
+}
+
+.goup-deletion-step-icon {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: rgba(255,154,79,0.1);
+  color: #ff9a4f;
+  border: 1px solid rgba(255,154,79,0.16);
+}
+
+.goup-deletion-step strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.01em;
+  margin-bottom: 5px;
+}
+
+.goup-deletion-step p {
+  font-size: 13px;
+  line-height: 1.62;
+  color: rgba(255,255,255,0.5);
+  margin: 0;
+}
+
+/* ── Alert box ── */
+
+.goup-legal-alert {
+  display: flex;
+  gap: 13px;
+  align-items: flex-start;
+  padding: 16px;
+  border: 1px solid rgba(255,154,79,0.2);
+  border-radius: 12px;
+  background: rgba(255,154,79,0.07);
+  margin-top: 14px;
+}
+
+.goup-legal-alert svg {
+  flex-shrink: 0;
+  color: #ff9a4f;
+  margin-top: 1px;
+}
+
+.goup-legal-alert p {
+  font-size: 13px !important;
+  line-height: 1.62 !important;
+  color: rgba(255,255,255,0.58) !important;
+  margin: 0 !important;
+}
+
+@media (max-width: 680px) {
+  .goup-legal-shell { padding: 32px 18px 72px; }
+  .goup-legal-card { border-radius: 16px; }
+  .goup-deletion-step { gap: 12px; padding: 14px; }
+}
