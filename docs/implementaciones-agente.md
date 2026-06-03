@@ -270,6 +270,53 @@ Validacion:
 
 - `npm run lint`: OK con 8 warnings preexistentes en componentes no relacionados.
 
+## 18. Conexion oficial de Instagram profesional con Meta OAuth
+
+Fecha: 2026-06-03
+
+Objetivo:
+
+- Permitir conectar una cuenta profesional de Instagram desde la app usando el flujo oficial de Meta.
+- Evitar depender solo de variables globales en `.env`.
+- Guardar la integracion por local para que el webhook use el token correcto del negocio.
+
+Cambios realizados:
+
+- Se agrego `GET /api/meta/connect` para iniciar OAuth con Meta.
+- Se agrego `GET /api/meta/callback` para recibir el `code`, intercambiarlo por token, leer paginas de Meta y detectar la cuenta profesional de Instagram conectada.
+- Se guarda en `Local`:
+  - `fbPageId`
+  - `fbToken`
+  - `igPageId`
+  - `igToken`
+- Se agrego `GET /api/meta/instagram/status` para mostrar el estado real de la cuenta conectada.
+- Se agrego `POST /api/meta/instagram/status` para desconectar la integracion del local.
+- La pantalla de Instagram ahora muestra:
+  - Boton `Conectar Instagram`.
+  - Estado de conexion.
+  - Usuario/foto de perfil si Meta los entrega.
+  - Boton de reconexion o desconexion.
+- Se agregaron variables de configuracion:
+  - `APP_URL`
+  - `NEXT_PUBLIC_APP_URL`
+  - `META_REDIRECT_URI`
+  - `META_GRAPH_VERSION`
+  - `META_OAUTH_SCOPES`
+
+Uso:
+
+1. En Meta Developers, configurar como OAuth Redirect URI: `https://goupsoluciones.cl/api/meta/callback` para produccion o `http://localhost:3000/api/meta/callback` para pruebas locales.
+2. En `.env` local, usar `APP_URL=http://localhost:3000` y `META_REDIRECT_URI=http://localhost:3000/api/meta/callback`.
+3. En Vercel, usar `APP_URL=https://goupsoluciones.cl`, `NEXT_PUBLIC_APP_URL=https://goupsoluciones.cl` y `META_REDIRECT_URI=https://goupsoluciones.cl/api/meta/callback`.
+4. Entrar al dashboard, ir a Instagram y presionar `Conectar Instagram`.
+5. Autorizar una cuenta profesional de Instagram vinculada a una pagina de Facebook.
+6. Al volver al dashboard, revisar que aparezca como conectada.
+
+Pendiente recomendado:
+
+- Si un negocio tiene varias paginas de Facebook con Instagram conectado, agregar una pantalla para elegir pagina antes de guardar.
+- Rotar tokens sensibles si fueron compartidos en capturas o archivos fuera del entorno local.
+
 ## 18. Dominio Goup Soluciones en Vercel
 
 Fecha: 2026-06-02
@@ -466,6 +513,137 @@ Validacion:
 - `npm run lint`: OK con 8 warnings preexistentes.
 - `npm run build`: OK.
 - Pruebas por `POST /api/agente/procesar-mensaje`: OK en casos corregidos.
+
+## 20. Rediseño completo del landing Goup Soluciones
+
+Fecha: 2026-06-03
+
+Archivos principales:
+
+- `app/_components_goup/success-cases.tsx`
+- `app/_components_goup/landing-hero.tsx`
+- `app/_components_goup/landing-features.tsx`
+- `app/_components_goup/landing-pricing.tsx` (creado, actualmente oculto)
+- `app/page.tsx`
+- `app/globals.css`
+
+Cambios realizados:
+
+- **Success cases rediseñado**: se pasó de un muro de logos planos a un grid de cards con métricas por local. Cada card tiene: área hero con logo a tamaño real (altura fija 152px), métrica destacada en naranja (+42%, 3×, -65%, 0, +38%), resultado en 2 líneas y nombre del local como footer.
+- **Logos reales en channel pills del hero**: se reemplazó el ícono genérico `Sparkles` por logos oficiales de WhatsApp, Instagram y Facebook vía simpleicons CDN. Cada pill tiene su color de borde y fondo de canal.
+- **Sección de integraciones rediseñada**: se eliminó el sistema de órbitas 3D CSS (ilegible en producción) y se reemplazó por un layout 2 columnas con hub de integraciones. La columna izquierda es el copy con bullets, la derecha es una card con 3 grupos claramente diferenciados: Canales Meta, Modelos IA y Stack técnico. Cada logo tiene 28px con nombre siempre visible.
+- **Sección Pricing creada**: 3 planes (Starter $49/mes, Pro $149/mes destacado, Enterprise a consultar) con CTA banner inferior. Actualmente ocultada en `page.tsx` porque la app no está activa con Meta para todos los locales todavía.
+- **Responsive móvil**: success cases usa scroll horizontal snap en móvil (flex row, overflow-x auto). Feature cards pasan a 2 columnas compactas en móvil sin min-height excesivo.
+
+Para activar pricing cuando esté listo:
+- Descomentar import y componente en `app/page.tsx`.
+- Agregar enlace `Precios` al nav en `landing-hero.tsx`.
+
+## 21. Páginas legales alineadas con políticas de Meta
+
+Fecha: 2026-06-03
+
+Archivos:
+
+- `app/privacidad/page.tsx`
+- `app/eliminacion-datos/page.tsx`
+- `app/globals.css` (clases `goup-legal-*`)
+
+Cambios realizados:
+
+- Ambas páginas rediseñadas con el tema oscuro cosmos de Goup (mismo fondo que el landing).
+- **Política de privacidad**: 11 secciones completas con acentos. Incluye: rol de Goup como encargado del tratamiento (no responsable — los negocios son responsables), uso de Plataforma Meta, procesamiento con modelos de IA de terceros (Gemini, Claude, OpenAI), derechos bajo Ley 19.628 y RGPD, datos de menores, contacto a `privacidad@goup.cl`.
+- **Eliminación de datos**: cumple el requisito de Meta de tener una URL de instrucciones de eliminación (`https://goupsoluciones.cl/eliminacion-datos`). Incluye: flujo de 3 pasos visuales con íconos (envío → revisión 72h → eliminación 30 días), qué datos se eliminan, datos retenidos transitoriamente, instrucciones específicas para revocar acceso desde configuración de Facebook.
+- Nuevo sistema de clases CSS `goup-legal-*`: shell, card, back, kicker, content, section, link, alert. Deletion steps con ícono y descripción.
+- Ambas páginas enlazan entre sí y tienen metadata SEO correcta apuntando a Goup Soluciones.
+
+Nota importante para Meta App Review:
+- La URL de política de privacidad configurada en la app de Meta debe ser `https://goupsoluciones.cl/privacidad`.
+- La URL de eliminación de datos debe ser `https://goupsoluciones.cl/eliminacion-datos`.
+
+## 22. Arquitectura multi-tenant: modelo Local y routing de webhooks
+
+Fecha: 2026-06-03
+
+Archivos:
+
+- `prisma/schema.prisma`
+- `app/api/webhooks/instagram/route.ts`
+- `lib/meta.ts`
+- `lib/agente.ts`
+- `lib/db-helpers.ts`
+
+Cambios realizados:
+
+- **Modelo `Local`**: representa cada negocio cliente de Goup. Campos: `nombre`, `slug`, `igPageId`, `fbPageId`, `waPhoneId`, `igToken`, `fbToken`, `waToken`. Tokens por canal guardados en DB, no en `.env`.
+- **Enum `RolUsuario`**: `super_admin`, `admin_local`, `operador`.
+- **Relaciones**: `Cliente` y `Conversacion` tienen `localId` opcional (retrocompatible).
+- **Webhook Instagram multi-tenant**: el handler ahora busca el local por `payload.entry[0].id` (Instagram Page ID) → carga el token de ese local → genera respuesta con el agente de ese local. Fallback al `META_ACCESS_TOKEN` del `.env` si no hay local en DB (compatibilidad Poke & Roll existente).
+- **`enviarInstagramTextoConToken`**: nueva función que acepta token explícito por local.
+- **`MensajeEntrante`**: campo `localId` agregado (opcional) para que el agente pueda en el futuro cargar configuración específica del local.
+- **Seed inicial**: Poke & Roll registrado en tabla `locales` con `igPageId=17841407392641200`.
+
+Para agregar un segundo local:
+```ts
+await prisma.local.create({
+  data: {
+    nombre: "EntreAmigos Gourmet",
+    slug: "entreamigos",
+    igPageId: "<page_id_de_meta>",
+    igToken: "<access_token>",
+  }
+});
+```
+
+El webhook rutea automáticamente por `igPageId` sin cambios en la URL.
+
+## 23. Sistema de usuarios y autenticación multi-tenant
+
+Fecha: 2026-06-03
+
+Archivos:
+
+- `prisma/schema.prisma` (modelo `Usuario`)
+- `auth.ts`
+- `middleware.ts`
+- `types/next-auth.d.ts`
+- `scripts/seed-usuarios.ts`
+
+Cambios realizados:
+
+- **Modelo `Usuario`**: email único, `passwordHash` (bcrypt), `nombre`, `rol` (super_admin / admin_local / operador), `localId` nullable. Un `super_admin` no tiene local; un `admin_local` está vinculado a un `Local` específico.
+- **`auth.ts` reescrito**: credenciales verificadas contra DB con `bcryptjs.compare`. La sesión JWT incluye `rol`, `localId`, `localSlug` y `localNombre`.
+- **Tipos NextAuth extendidos** en `types/next-auth.d.ts`: session.user incluye `id`, `rol`, `localId`, `localSlug`, `localNombre`.
+- **Middleware actualizado**: protege `/dashboard` y `/admin`. Redirige `super_admin` a `/admin`, `admin_local` a `/dashboard`. Bloquea acceso a `/admin` para usuarios sin rol `super_admin`. Si ya está logueado e intenta entrar al login, redirige a su plataforma.
+- **Script seed**: `scripts/seed-usuarios.ts` crea usuarios con bcrypt. Ejecutar con `npx tsx scripts/seed-usuarios.ts`.
+- **bcryptjs** instalado como dependencia de producción.
+
+Usuarios iniciales en producción:
+
+| Email | Rol | Local |
+|---|---|---|
+| admin@goup.cl | super_admin | Todos |
+| admin@pokeyroll.cl | admin_local | Sushi Poke & Roll |
+
+**Importante**: cambiar contraseñas antes de ir a producción editando `scripts/seed-usuarios.ts` y volviendo a ejecutar.
+
+## 24. Webhook Instagram activo en producción
+
+Fecha: 2026-06-03
+
+Configuración aplicada:
+
+- **URL de devolución**: `https://goupsoluciones.cl/api/webhooks/instagram`
+- **Verify token**: `poke-roll-webhook`
+- `META_VERIFY_TOKEN` actualizado en Vercel (el valor anterior era diferente y causaba 403).
+- Fix en `getVerifyToken()`: se cambió `??` por `||` para cubrir el caso de string vacío en Vercel.
+
+Estado:
+- Verificación del webhook: OK (devuelve challenge correctamente).
+- Cuentas conectadas en Meta: `pizza_and_roll` (ID 17841407392641200) y `goup_app` (ID 17841474753785429).
+- La cuenta `pizza_and_roll` corresponde a Poke & Roll (el nombre en Meta fue creado como pizza_and_roll).
+- Pendiente: suscribir campo `messages` en Meta Developer Console para empezar a recibir mensajes.
+- Pendiente: completar revisión de app en Meta (paso 5) para usar la API en producción con cuentas reales.
 
 ## 17. Laboratorio con conversacion simulada
 
