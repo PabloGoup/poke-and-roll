@@ -6,8 +6,7 @@ import DashboardClient from "@/app/dashboard-client";
 export default async function DashboardPage() {
   const session = await auth();
 
-  // Sesión inexistente o JWT viejo (id="1" era el admin hardcodeado anterior)
-  if (!session?.user?.id || session.user.id === "1") {
+  if (!session?.user?.id) {
     redirect("/login");
   }
 

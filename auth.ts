@@ -42,12 +42,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
+        // Login fresco — poblar token con datos completos
         token.id          = user.id;
         token.rol         = (user as { rol: string }).rol;
         token.localId     = (user as { localId: string | null }).localId;
         token.localSlug   = (user as { localSlug: string | null }).localSlug;
         token.localNombre = (user as { localNombre: string | null }).localNombre;
+        return token;
       }
+
+      // Token existente: invalidar JWTs viejos sin rol (pre-migración)
+      // Retornar null fuerza al middleware a tratar la sesión como inexistente
+      if (!token.rol || token.id === "1") {
+        return null;
+      }
+
       return token;
     },
     async session({ session, token }) {
