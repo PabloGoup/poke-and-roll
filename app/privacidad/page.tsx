@@ -30,7 +30,7 @@ export default function PrivacidadPage() {
 
             <section className="goup-legal-section">
               <p>
-                Goup Soluciones SpA ("Goup", "nosotros") opera una plataforma
+                Goup Soluciones SpA (&ldquo;Goup&rdquo;, &ldquo;nosotros&rdquo;) opera una plataforma
                 de agentes de inteligencia artificial para negocios que
                 utilizan canales oficiales de Meta: WhatsApp Business API,
                 Instagram Messaging API y Facebook Messenger API. Esta
@@ -44,7 +44,7 @@ export default function PrivacidadPage() {
               <h2>1. Responsable del tratamiento</h2>
               <p>
                 Goup Soluciones SpA actúa como encargado del tratamiento en
-                nombre de los negocios ("clientes de Goup") que contratan la
+                nombre de los negocios (&ldquo;clientes de Goup&rdquo;) que contratan la
                 plataforma. El negocio con quien el usuario interactúa es el
                 responsable del tratamiento de sus datos personales. Goup
                 procesa los datos siguiendo las instrucciones de cada
