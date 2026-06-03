@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { SessionProvider } from "next-auth/react";
 
 export const metadata: Metadata = {
-  title: "Poke & Roll — Dashboard",
-  description: "Agente omnicanal para WhatsApp, Instagram y contenido diario.",
+  title: "Panel — Goup Soluciones",
+  description: "Panel operativo del agente omnicanal.",
 };
 
 export default function PokeLayout({ children }: { children: React.ReactNode }) {

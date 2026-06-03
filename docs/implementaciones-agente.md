@@ -270,7 +270,7 @@ Validacion:
 
 - `npm run lint`: OK con 8 warnings preexistentes en componentes no relacionados.
 
-## 18. Conexion oficial de Instagram profesional con Meta OAuth
+## 25. Conexion oficial de Instagram profesional con Meta OAuth
 
 Fecha: 2026-06-03
 

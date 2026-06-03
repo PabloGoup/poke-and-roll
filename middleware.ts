@@ -8,7 +8,8 @@ export default auth((req) => {
 
   const isProtected =
     pathname.startsWith("/dashboard") ||
-    pathname.startsWith("/admin");
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/onboarding");
 
   if (isProtected && !isLoggedIn) {
     const loginUrl = new URL("/login", req.url);
@@ -18,7 +19,11 @@ export default auth((req) => {
 
   // Ya logueado intentando entrar al login → mandar a su plataforma
   if (pathname === "/login" && isLoggedIn) {
-    const dest = session.user.rol === "super_admin" ? "/admin" : "/dashboard";
+    const callbackUrl = req.nextUrl.searchParams.get("callbackUrl");
+    const dest =
+      callbackUrl?.startsWith("/") && !callbackUrl.startsWith("//")
+        ? callbackUrl
+        : session.user.rol === "super_admin" ? "/admin" : "/dashboard";
     return NextResponse.redirect(new URL(dest, req.url));
   }
 
@@ -31,5 +36,5 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/admin/:path*", "/login"],
+  matcher: ["/dashboard/:path*", "/admin/:path*", "/onboarding/:path*", "/login"],
 };

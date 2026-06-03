@@ -28,20 +28,26 @@ type Props = {
   children: ReactNode;
   vista: Vista;
   onVistaChange: (v: Vista) => void;
+  localNombre?: string | null;
+  localSlug?: string | null;
+  rol?: string | null;
 };
 
 const CANAL_VISTAS: Vista[] = ["whatsapp", "instagram", "facebook"];
 
-export function AppShell({ children, vista, onVistaChange }: Props) {
+export function AppShell({ children, vista, onVistaChange, localNombre, localSlug, rol }: Props) {
   const isCanal = CANAL_VISTAS.includes(vista);
+  const isPokeLocal = localSlug === "poke-and-roll";
+  const brandName = localNombre || (rol === "super_admin" ? "Goup Admin" : "Goup Local");
+  const brandLogo = isPokeLocal ? "/images/Poke_n_Roll.png" : "/images/goup.png";
   return (
     <div className="shell">
       <header className="topbar">
         <div className="topbar-left">
           <span className="topbar-logo-shell" aria-hidden="true">
-            <Image alt="" className="topbar-logo" height={34} priority src="/images/Poke_n_Roll.png" width={34} />
+            <Image alt="" className="topbar-logo" height={34} priority src={brandLogo} width={34} />
           </span>
-          <span className="topbar-brand">Sushi Poke & Roll</span>
+          <span className="topbar-brand">{brandName}</span>
         </div>
 
         <nav className="topbar-nav">
@@ -71,8 +77,8 @@ export function AppShell({ children, vista, onVistaChange }: Props) {
         <footer className="site-footer">
           <div className="footer-inner">
             <div className="footer-brand">
-              <Image alt="Poke & Roll" className="footer-logo" height={24} src="/images/Poke_n_Roll.png" width={24} />
-              <span>Poke & Roll</span>
+              <Image alt={brandName} className="footer-logo" height={24} src={brandLogo} width={24} />
+              <span>{brandName}</span>
             </div>
             <div className="footer-links">
               <div className="footer-col">
@@ -94,7 +100,7 @@ export function AppShell({ children, vista, onVistaChange }: Props) {
               </div>
             </div>
             <div className="footer-bottom">
-              <p>Poke & Roll — Agente omnicanal impulsado por IA</p>
+              <p>{brandName} — Agente omnicanal impulsado por IA</p>
               <p>WhatsApp · Instagram · Facebook Messenger</p>
             </div>
           </div>

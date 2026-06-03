@@ -21,7 +21,13 @@ import { IntegrationStatus } from "@/app/components/integration-status";
 import { SecurityPanel } from "@/app/components/security-panel";
 import { Canal, DecisionResponse, HealthResponse, MensajeLaboratorio, MetricasResponse, Vista } from "@/app/types";
 
-export default function DashboardClient() {
+type DashboardClientProps = {
+  localNombre?: string | null;
+  localSlug?: string | null;
+  rol?: string | null;
+};
+
+export default function DashboardClient({ localNombre, localSlug, rol }: DashboardClientProps = {}) {
   const [vista, setVista] = useState<Vista>("dashboard");
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [healthLoading, setHealthLoading] = useState(false);
@@ -125,15 +131,24 @@ export default function DashboardClient() {
 
   useEffect(() => { cargarHealth(); }, []);
 
+  useEffect(() => {
+    const vistaParam = new URLSearchParams(window.location.search).get("vista");
+    if (vistaParam === "instagram") setVista("instagram");
+  }, []);
+
+  const isPokeLocal = localSlug === "poke-and-roll";
+  const brandName = localNombre || (rol === "super_admin" ? "Goup Admin" : "Goup Local");
+  const brandLogo = isPokeLocal ? "/images/Poke_n_Roll.png" : "/images/goup.png";
+
   return (
-    <AppShell vista={vista} onVistaChange={setVista}>
+    <AppShell localNombre={localNombre} localSlug={localSlug} rol={rol} vista={vista} onVistaChange={setVista}>
       {vista === "dashboard" && (
         <div className="page-stack">
-          <section className="brand-hero" aria-label="Sushi Poke and Roll">
+          <section className="brand-hero" aria-label={brandName}>
             <div className="brand-hero-mark">
-              <Image alt="Poke & Roll" height={96} priority src="/images/Poke_n_Roll.png" width={96} />
+              <Image alt={brandName} height={96} priority src={brandLogo} width={96} />
             </div>
-            <h1>Sushi Poke & Roll</h1>
+            <h1>{brandName}</h1>
           </section>
 
           {/* Quick-access canal shortcuts + Agente Lab shortcut */}

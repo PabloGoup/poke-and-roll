@@ -27,6 +27,8 @@ const canales = [
   { name: "Facebook",  src: "https://cdn.simpleicons.org/facebook/1877F2",  cls: "pill-fb" },
 ];
 
+const instagramOnboardingHref = "/login?callbackUrl=/onboarding/instagram";
+
 export function LandingHero() {
   const rootRef = useRef<HTMLElement>(null);
   const visualRef = useRef<HTMLDivElement>(null);
@@ -151,7 +153,10 @@ export function LandingHero() {
           <a href="#workflow">Flujo</a>
           <a href="#control">Control</a>
         </div>
-        <Link href="/login" className="goup-nav-login">Acceder</Link>
+        <div className="goup-nav-actions">
+          <Link href={instagramOnboardingHref} className="goup-nav-connect">Conectar Instagram</Link>
+          <Link href="/login" className="goup-nav-login">Acceder</Link>
+        </div>
       </nav>
 
       <div className="goup-hero-layout">
@@ -170,13 +175,11 @@ export function LandingHero() {
           </p>
 
           <div className="goup-hero-actions goup-animate-in">
-            <Link href="/login" className="goup-btn-hero-primary">
-              Entrar a la plataforma
+            <Link href={instagramOnboardingHref} className="goup-btn-hero-primary">
+              Conectar Instagram
               <ArrowRight size={16} />
             </Link>
-            <a href="#features" className="goup-btn-hero-secondary">
-              Ver cómo funciona
-            </a>
+            <Link href="/login" className="goup-btn-hero-secondary">Entrar a la plataforma</Link>
           </div>
 
           <div className="goup-hero-proof goup-animate-in">
