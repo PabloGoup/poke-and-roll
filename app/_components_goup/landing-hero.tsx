@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Bot, MessageCircle, ShieldCheck, Sparkles, Zap } from "lucide-react";
+import { ArrowRight, Bot, MessageCircle, ShieldCheck, Zap } from "lucide-react";
 import gsap from "gsap";
 import { useEffect, useRef } from "react";
 
@@ -21,7 +21,11 @@ const demoConversations = [
   }
 ];
 
-const canales = ["WhatsApp", "Instagram", "Facebook"];
+const canales = [
+  { name: "WhatsApp",  src: "https://cdn.simpleicons.org/whatsapp/25D366",  cls: "pill-wa" },
+  { name: "Instagram", src: "https://cdn.simpleicons.org/instagram/E4405F", cls: "pill-ig" },
+  { name: "Facebook",  src: "https://cdn.simpleicons.org/facebook/1877F2",  cls: "pill-fb" },
+];
 
 export function LandingHero() {
   const rootRef = useRef<HTMLElement>(null);
@@ -142,6 +146,7 @@ export function LandingHero() {
           <Image src="/images/goup.png" alt="Goup Soluciones" width={102} height={34} priority />
         </Link>
         <div className="goup-nav-links">
+          <a href="#casos">Casos</a>
           <a href="#features">Producto</a>
           <a href="#workflow">Flujo</a>
           <a href="#control">Control</a>
@@ -224,9 +229,10 @@ export function LandingHero() {
 
             <div className="goup-product-grid">
               {canales.map((canal) => (
-                <div className="goup-channel-pill" key={canal}>
-                  <Sparkles size={13} />
-                  {canal}
+                <div className={`goup-channel-pill ${canal.cls}`} key={canal.name}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={canal.src} alt={canal.name} width={14} height={14} />
+                  {canal.name}
                 </div>
               ))}
             </div>

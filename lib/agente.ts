@@ -35,15 +35,6 @@ type DecisionAgente = {
   } | null;
 };
 
-function serializarHistorial(mensaje: MensajeEntrante) {
-  const historial = mensaje.historial?.slice(-8) ?? [];
-  if (historial.length === 0) return "";
-
-  return historial
-    .map((item) => `${item.rol === "cliente" ? "Cliente" : "Agente"}: ${item.texto}`)
-    .join("\n");
-}
-
 const palabrasReclamo = ["atraso", "demora", "malo", "reclamo", "equivocado", "frio", "no llego", "nunca llego", "cancelar", "mala calidad", "nunca llegó"];
 const palabrasVenta = ["quiero", "promo", "combo", "comprar", "pedido", "recomienda", "cuanto", "cuánto", "precio", "vale", "menu", "menú", "carta", "pedir", "opciones", "tienen", "hay algo", "sin palta", "palta", "salmon", "salmón", "cambiar", "cambio", "reemplazar", "que tienen", "que hay"];
 const palabrasHorario = ["hora", "horario", "cierran", "abren", "abierto", "cerrado", "cuando abren", "cuando cierran"];

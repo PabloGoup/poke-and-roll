@@ -269,6 +269,68 @@ Cambios realizados:
 Validacion:
 
 - `npm run lint`: OK con 8 warnings preexistentes en componentes no relacionados.
+
+## 18. Dominio Goup Soluciones en Vercel
+
+Fecha: 2026-06-02
+
+Cambios realizados:
+
+- Se agrego `goupsoluciones.cl` al proyecto Vercel `poke-and-roll`.
+- Se agrego `www.goupsoluciones.cl` al mismo proyecto.
+
+Estado:
+
+- Vercel acepto ambos dominios.
+- La configuracion DNS aun queda pendiente en el proveedor del dominio.
+
+Registros DNS indicados por Vercel:
+
+```text
+A     goupsoluciones.cl      76.76.21.21
+A     www.goupsoluciones.cl  76.76.21.21
+```
+
+Alternativa:
+
+- Cambiar nameservers del dominio a:
+
+```text
+ns1.vercel-dns.com
+ns2.vercel-dns.com
+```
+
+Nota:
+
+- Vercel ejecutara la verificacion automaticamente cuando el DNS propague.
+
+## 19. Casos de exito en landing Goup
+
+Fecha: 2026-06-02
+
+Cambios realizados:
+
+- Se agrego una seccion `Casos de exito` al landing, rediseñada como muro de logos.
+- Se incorporaron cinco locales reales con logos/wordmarks:
+  - Sushi Poke & Roll.
+  - EntreAmigos Gourmet.
+  - A la Romana Pizzeria.
+  - Fu-zion Restobar.
+  - ChorriBurgers.
+- Se creo `app/_components_goup/success-cases.tsx` como componente separado.
+- Se conecto la seccion desde `app/page.tsx`, entre el hero y las features.
+- Se agrego enlace `Casos` en la navegacion principal del landing.
+- Se eliminaron las tarjetas grandes y el destacado individual para que todos los logos tengan la misma jerarquia visual.
+- Se usan imagenes reales desde `public/casos-exito` y `public/images/Poke_n_Roll.png`.
+- Se ajusto visibilidad de logos: mayor tamaño, más brillo/opacidad y menor espacio vertical para que sean legibles sobre fondo oscuro.
+- Se agregaron animaciones GSAP con `ScrollTrigger` para entrada de texto y logos.
+- Se agregaron estilos responsive en `app/globals.css`.
+
+Validacion:
+
+- `npm run lint`: OK con 8 warnings preexistentes.
+- `npm run build`: OK. Aparecen warnings de Edge Runtime en `jose/next-auth` y warnings lint preexistentes.
+- `GET /`: OK, devuelve HTML 200 y contiene los cuatro casos.
 - `npm run build`: OK con los mismos warnings preexistentes.
 - `npm run build`: OK.
 
