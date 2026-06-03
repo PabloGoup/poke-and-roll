@@ -10,6 +10,11 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
+  // Super admin no tiene local — su panel es /admin
+  if (session.user.rol === "super_admin") {
+    redirect("/admin");
+  }
+
   let localNombre = session.user.localNombre ?? null;
   let localSlug   = session.user.localSlug   ?? null;
   const rol       = session.user.rol         ?? null;

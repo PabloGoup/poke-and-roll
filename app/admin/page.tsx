@@ -14,13 +14,13 @@ export default async function AdminPage() {
 
   const locales = await prisma.local.findMany({
     orderBy: { nombre: "asc" },
-    select: {
-      id: true,
-      nombre: true,
-      slug: true,
-      activo: true,
-      igPageId: true,
-      fbPageId: true
+    include: {
+      usuarios: {
+        where: { rol: "admin_local", activo: true },
+        select: { email: true, nombre: true },
+        take: 1
+      },
+      _count: { select: { conversaciones: true } }
     }
   });
 
@@ -29,27 +29,59 @@ export default async function AdminPage() {
       <section className="goup-admin-hero">
         <span>Panel SaaS</span>
         <h1>Locales Goup</h1>
-        <p>Administra las conexiones oficiales de Meta por negocio sin mezclar tokens ni conversaciones entre clientes.</p>
+        <p>
+          Gestiona conexiones Meta y accede al dashboard operativo de cada negocio.
+        </p>
         <Link className="goup-admin-primary" href="/onboarding/instagram">
-          Conectar Instagram de un local
+          + Conectar Instagram de un local
         </Link>
       </section>
 
       <section className="goup-local-grid">
         {locales.map((local) => (
           <article className="goup-local-card" key={local.id}>
-            <div>
-              <span className="goup-local-status">{local.activo ? "Activo" : "Inactivo"}</span>
+            <div className="goup-local-card-header">
+              <span className={`goup-local-status ${local.activo ? "ok" : "off"}`}>
+                {local.activo ? "Activo" : "Inactivo"}
+              </span>
               <h2>{local.nombre}</h2>
-              <p>{local.slug}</p>
+              <p className="goup-local-slug">{local.slug}</p>
             </div>
+
             <div className="goup-local-meta">
-              <span>Instagram: {local.igPageId ? "conectado" : "pendiente"}</span>
-              <span>Facebook: {local.fbPageId ? "conectado" : "pendiente"}</span>
+              <div>
+                <span className={local.igPageId ? "meta-ok" : "meta-pending"}>
+                  Instagram {local.igPageId ? "✓" : "—"}
+                </span>
+                <span className={local.fbPageId ? "meta-ok" : "meta-pending"}>
+                  Facebook {local.fbPageId ? "✓" : "—"}
+                </span>
+              </div>
+              <span className="goup-local-convs">
+                {local._count.conversaciones} conv.
+              </span>
             </div>
-            <Link className="goup-local-action" href={`/api/meta/connect?localId=${local.id}`}>
-              {local.igPageId ? "Reconectar Meta" : "Conectar Meta"}
-            </Link>
+
+            {local.usuarios[0] && (
+              <p className="goup-local-admin-email">
+                Admin: {local.usuarios[0].email}
+              </p>
+            )}
+
+            <div className="goup-local-actions">
+              <Link
+                className="goup-local-action-primary"
+                href={`/admin/local/${local.slug}`}
+              >
+                Gestionar local →
+              </Link>
+              <Link
+                className="goup-local-action-secondary"
+                href={`/api/meta/connect?localId=${local.id}`}
+              >
+                {local.igPageId ? "Reconectar Meta" : "Conectar Meta"}
+              </Link>
+            </div>
           </article>
         ))}
       </section>
