@@ -9,23 +9,27 @@ datasource db {
 
 // ─── Multi-tenant: cada Local es un negocio cliente de Goup ───────────────────
 
+enum RolUsuario {
+  super_admin   // Goup: accede a todos los locales
+  admin_local   // Dueño/gerente de un local específico
+  operador      // Staff de un local (solo lectura ampliada)
+}
+
 model Local {
   id          String   @id @default(cuid())
   nombre      String
-  slug        String   @unique          // ej: "poke-and-roll"
+  slug        String   @unique
   activo      Boolean  @default(true)
 
-  // Identificadores de página Meta (usados para routing de webhooks entrantes)
-  igPageId    String?  @unique @map("ig_page_id")     // Instagram Page ID
-  fbPageId    String?  @unique @map("fb_page_id")     // Facebook Page ID
-  waPhoneId   String?  @unique @map("wa_phone_id")    // WhatsApp Phone Number ID
+  igPageId    String?  @unique @map("ig_page_id")
+  fbPageId    String?  @unique @map("fb_page_id")
+  waPhoneId   String?  @unique @map("wa_phone_id")
 
-  // Tokens por canal (cifrados en DB — no en .env)
   igToken     String?  @map("ig_token")
   fbToken     String?  @map("fb_token")
   waToken     String?  @map("wa_token")
 
-  // Relaciones
+  usuarios       Usuario[]
   clientes       Cliente[]
   conversaciones Conversacion[]
   creadoEn       DateTime @default(now()) @map("creado_en")
@@ -33,6 +37,25 @@ model Local {
 
   @@map("locales")
 }
+
+model Usuario {
+  id            String     @id @default(cuid())
+  email         String     @unique
+  passwordHash  String     @map("password_hash")
+  nombre        String
+  rol           RolUsuario @default(admin_local)
+  activo        Boolean    @default(true)
+  localId       String?    @map("local_id")
+  local         Local?     @relation(fields: [localId], references: [id])
+  creadoEn      DateTime   @default(now()) @map("creado_en")
+  actualizadoEn DateTime   @updatedAt @map("actualizado_en")
+
+  @@index([email])
+  @@index([localId])
+  @@map("usuarios")
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 
 // ──────────────────────────────────────────────────────────────────────────────
 
