@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 import { generarRespuesta } from "@/lib/agente";
-import { enviarInstagramTexto, verificarWebhook } from "@/lib/meta";
+import { enviarInstagramTextoConToken, verificarWebhook } from "@/lib/meta";
 import { guardarDecision, guardarMensaje, obtenerOCrearConversacion, upsertCliente } from "@/lib/db-helpers";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: Request) {
   const challenge = verificarWebhook(new URL(request.url).searchParams);
-
   if (!challenge) {
     return NextResponse.json({ ok: false, error: "Verificacion invalida" }, { status: 403 });
   }
@@ -16,6 +15,23 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const payload = await request.json().catch(() => null);
 
+  // ── Identificar a qué local pertenece este evento ──────────────────────────
+  const igPageId: string | undefined = payload?.entry?.[0]?.id;
+
+  // Buscar el local por su Instagram Page ID
+  const local = igPageId
+    ? await prisma.local.findUnique({ where: { igPageId } })
+    : null;
+
+  // Fallback: si no hay local configurado aún, usar token de entorno
+  // (compatibilidad con el setup single-tenant de Poke & Roll)
+  const igToken = local?.igToken ?? process.env.META_ACCESS_TOKEN ?? null;
+
+  if (!igToken) {
+    return NextResponse.json({ ok: false, error: "Local no encontrado o sin token IG" }, { status: 400 });
+  }
+
+  // ── Log del evento raw ─────────────────────────────────────────────────────
   try {
     await prisma.eventoMeta.create({
       data: {
@@ -37,22 +53,27 @@ export async function POST(request: Request) {
 
   const senderId: string = messaging?.sender?.id ?? "ig_unknown";
 
+  // ── Generar respuesta con el agente del local ──────────────────────────────
   const decision = await generarRespuesta({
     canal: "instagram",
     cliente: senderId,
-    texto
+    texto,
+    localId: local?.id
   });
 
+  // ── Persistir conversación, mensajes y decisión ────────────────────────────
   try {
     const cliente = await upsertCliente({
       canal: "instagram",
-      canalId: senderId
+      canalId: senderId,
+      localId: local?.id
     });
 
     const conversacion = await obtenerOCrearConversacion({
       clienteId: cliente.id,
       canal: "instagram",
-      threadId: messaging?.thread?.id
+      threadId: messaging?.thread?.id,
+      localId: local?.id
     });
 
     await guardarMensaje({
@@ -74,7 +95,11 @@ export async function POST(request: Request) {
       requiereHumano: decision.requiereHumano
     });
 
-    const envio = await enviarInstagramTexto({ recipientId: senderId, texto: decision.respuesta });
+    const envio = await enviarInstagramTextoConToken({
+      recipientId: senderId,
+      texto: decision.respuesta,
+      token: igToken
+    });
 
     if (envio.ok) {
       await guardarMensaje({
@@ -85,8 +110,17 @@ export async function POST(request: Request) {
       });
     }
   } catch {
-    await enviarInstagramTexto({ recipientId: senderId, texto: decision.respuesta });
+    await enviarInstagramTextoConToken({
+      recipientId: senderId,
+      texto: decision.respuesta,
+      token: igToken
+    });
   }
 
-  return NextResponse.json({ ok: true, canal: "instagram", decision });
+  return NextResponse.json({
+    ok: true,
+    canal: "instagram",
+    local: local?.slug ?? "fallback-env",
+    decision
+  });
 }

@@ -50,17 +50,29 @@ export async function enviarInstagramTexto(params: {
   recipientId: string;
   texto: string;
 }) {
-  const accessToken = process.env.META_ACCESS_TOKEN;
+  return enviarInstagramTextoConToken({
+    recipientId: params.recipientId,
+    texto: params.texto,
+    token: process.env.META_ACCESS_TOKEN ?? null
+  });
+}
+
+/** Versión multi-tenant: recibe el token explícito del local */
+export async function enviarInstagramTextoConToken(params: {
+  recipientId: string;
+  texto: string;
+  token: string | null;
+}) {
   const igBusinessId = process.env.INSTAGRAM_BUSINESS_ACCOUNT_ID;
 
-  if (!accessToken || !igBusinessId) {
-    return { ok: false, modo: "simulado", detalle: "Faltan META_ACCESS_TOKEN o INSTAGRAM_BUSINESS_ACCOUNT_ID" };
+  if (!params.token || !igBusinessId) {
+    return { ok: false, modo: "simulado", detalle: "Falta token IG o INSTAGRAM_BUSINESS_ACCOUNT_ID" };
   }
 
   const response = await fetch(`${GRAPH_URL}/${igBusinessId}/messages`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: `Bearer ${params.token}`,
       "Content-Type": "application/json"
     },
     body: JSON.stringify({

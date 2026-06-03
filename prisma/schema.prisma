@@ -7,6 +7,35 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ─── Multi-tenant: cada Local es un negocio cliente de Goup ───────────────────
+
+model Local {
+  id          String   @id @default(cuid())
+  nombre      String
+  slug        String   @unique          // ej: "poke-and-roll"
+  activo      Boolean  @default(true)
+
+  // Identificadores de página Meta (usados para routing de webhooks entrantes)
+  igPageId    String?  @unique @map("ig_page_id")     // Instagram Page ID
+  fbPageId    String?  @unique @map("fb_page_id")     // Facebook Page ID
+  waPhoneId   String?  @unique @map("wa_phone_id")    // WhatsApp Phone Number ID
+
+  // Tokens por canal (cifrados en DB — no en .env)
+  igToken     String?  @map("ig_token")
+  fbToken     String?  @map("fb_token")
+  waToken     String?  @map("wa_token")
+
+  // Relaciones
+  clientes       Cliente[]
+  conversaciones Conversacion[]
+  creadoEn       DateTime @default(now()) @map("creado_en")
+  actualizadoEn  DateTime @updatedAt @map("actualizado_en")
+
+  @@map("locales")
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+
 enum Canal {
   whatsapp
   instagram
@@ -73,6 +102,8 @@ enum TipoCatalogoVisual {
 
 model Cliente {
   id              String         @id @default(cuid())
+  localId         String?        @map("local_id")
+  local           Local?         @relation(fields: [localId], references: [id])
   instagramId    String?        @unique @map("instagram_id")
   whatsappId     String?        @unique @map("whatsapp_id")
   facebookId     String?        @unique @map("facebook_id")
@@ -84,11 +115,14 @@ model Cliente {
   creadoEn       DateTime       @default(now()) @map("creado_en")
   actualizadoEn  DateTime       @updatedAt @map("actualizado_en")
 
+  @@index([localId])
   @@map("clientes")
 }
 
 model Conversacion {
   id                String             @id @default(cuid())
+  localId           String?            @map("local_id")
+  local             Local?             @relation(fields: [localId], references: [id])
   clienteId         String             @map("cliente_id")
   cliente           Cliente            @relation(fields: [clienteId], references: [id])
   canal             Canal
@@ -104,7 +138,7 @@ model Conversacion {
   creadoEn          DateTime           @default(now()) @map("creado_en")
   actualizadoEn     DateTime           @updatedAt @map("actualizado_en")
 
-  @@index([canal, estado])
+  @@index([localId, canal, estado])
   @@map("conversaciones")
 }
 

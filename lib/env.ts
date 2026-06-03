@@ -9,5 +9,6 @@ export function requireEnv(name: string) {
 }
 
 export function getVerifyToken() {
-  return process.env.META_VERIFY_TOKEN ?? "poke-roll-webhook";
+  // || en vez de ?? para cubrir string vacío en Vercel env
+  return process.env.META_VERIFY_TOKEN?.trim() || "poke-roll-webhook";
 }

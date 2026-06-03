@@ -12,6 +12,7 @@ export const mensajeEntranteSchema = z.object({
   canal: z.enum(["whatsapp", "instagram", "facebook"]),
   cliente: z.string().min(1),
   texto: z.string().min(1),
+  localId: z.string().optional(),   // multi-tenant: id del Local en DB
   conversacionId: z.string().optional(),
   historial: z.array(z.object({
     rol: z.enum(["cliente", "agente"]),

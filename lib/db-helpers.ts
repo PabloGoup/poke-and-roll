@@ -5,25 +5,28 @@ export async function upsertCliente(params: {
   canal: Canal;
   canalId: string;
   nombre?: string;
+  localId?: string;
 }) {
+  const localConnect = params.localId ? { local: { connect: { id: params.localId } } } : {};
+
   if (params.canal === "whatsapp") {
     return prisma.cliente.upsert({
       where: { whatsappId: params.canalId },
-      create: { whatsappId: params.canalId, nombre: params.nombre },
-      update: params.nombre ? { nombre: params.nombre } : {}
+      create: { whatsappId: params.canalId, nombre: params.nombre, ...localConnect },
+      update: { ...localConnect, ...(params.nombre ? { nombre: params.nombre } : {}) }
     });
   }
   if (params.canal === "instagram") {
     return prisma.cliente.upsert({
       where: { instagramId: params.canalId },
-      create: { instagramId: params.canalId, nombre: params.nombre },
-      update: params.nombre ? { nombre: params.nombre } : {}
+      create: { instagramId: params.canalId, nombre: params.nombre, ...localConnect },
+      update: { ...localConnect, ...(params.nombre ? { nombre: params.nombre } : {}) }
     });
   }
   return prisma.cliente.upsert({
     where: { facebookId: params.canalId },
-    create: { facebookId: params.canalId, nombre: params.nombre },
-    update: params.nombre ? { nombre: params.nombre } : {}
+    create: { facebookId: params.canalId, nombre: params.nombre, ...localConnect },
+    update: { ...localConnect, ...(params.nombre ? { nombre: params.nombre } : {}) }
   });
 }
 
@@ -31,6 +34,7 @@ export async function obtenerOCrearConversacion(params: {
   clienteId: string;
   canal: Canal;
   threadId?: string;
+  localId?: string;
 }) {
   const threadField =
     params.canal === "whatsapp" ? "whatsappThreadId" : "instagramThreadId";
@@ -39,6 +43,7 @@ export async function obtenerOCrearConversacion(params: {
     where: {
       clienteId: params.clienteId,
       canal: params.canal,
+      ...(params.localId ? { localId: params.localId } : {}),
       estado: { in: ["activa", "pausada"] }
     },
     orderBy: { actualizadoEn: "desc" }
@@ -51,7 +56,8 @@ export async function obtenerOCrearConversacion(params: {
       clienteId: params.clienteId,
       canal: params.canal,
       estado: EstadoConversacion.activa,
-      [threadField]: params.threadId
+      [threadField]: params.threadId,
+      ...(params.localId ? { localId: params.localId } : {})
     }
   });
 }
