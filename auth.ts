@@ -1,9 +1,16 @@
+/**
+ * Configuración completa de NextAuth — Node.js runtime únicamente.
+ * Incluye bcryptjs y prisma. NO importar desde middleware.
+ */
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { compare } from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { authConfig } from "./auth.config";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  ...authConfig,
+
   providers: [
     Credentials({
       credentials: {
@@ -28,44 +35,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           email:        usuario.email,
           name:         usuario.nombre,
           rol:          usuario.rol,
-          localId:      usuario.localId      ?? null,
-          localSlug:    usuario.local?.slug  ?? null,
+          localId:      usuario.localId       ?? null,
+          localSlug:    usuario.local?.slug   ?? null,
           localNombre:  usuario.local?.nombre ?? null,
         };
       },
     }),
   ],
-
-  pages: { signIn: "/login" },
-  session: { strategy: "jwt" },
-
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        // Login fresco — poblar token con datos completos
-        token.id          = user.id;
-        token.rol         = (user as { rol: string }).rol;
-        token.localId     = (user as { localId: string | null }).localId;
-        token.localSlug   = (user as { localSlug: string | null }).localSlug;
-        token.localNombre = (user as { localNombre: string | null }).localNombre;
-        return token;
-      }
-
-      // Token existente: invalidar JWTs viejos sin rol (pre-migración)
-      // Retornar null fuerza al middleware a tratar la sesión como inexistente
-      if (!token.rol || token.id === "1") {
-        return null;
-      }
-
-      return token;
-    },
-    async session({ session, token }) {
-      session.user.id          = token.id          as string;
-      session.user.rol         = token.rol         as string;
-      session.user.localId     = token.localId     as string | null;
-      session.user.localSlug   = token.localSlug   as string | null;
-      session.user.localNombre = token.localNombre as string | null;
-      return session;
-    },
-  },
 });
