@@ -2,27 +2,31 @@
 
 Ultima actualizacion: 2026-06-03
 
-## 25. Revisión de Meta aprobada — App GoUp Social AI
+## 25. Verificación de empresa Meta aprobada — Goup Soluciones
 
 Fecha: 2026-06-03
 
-Estado: **APROBADO**
+Estado: **VERIFICACIÓN DE EMPRESA APROBADA**
 
-Permisos aprobados:
-- `instagram_business_basic` — leer perfil y metadata de cuentas profesionales de Instagram
-- `instagram_business_manage_messages` — enviar y recibir mensajes vía Instagram Messaging API
+Esto es distinto al App Review de permisos. La verificación de empresa confirma que Goup Soluciones es una entidad comercial legítima ante Meta. Habilita:
+- Acceso a la API de Instagram Messaging en modo producción con usuarios reales
+- Acceso a la WhatsApp Business API (WABA) oficial
+- Límites de rate y volumen de producción (no sandbox)
+- Posibilidad de solicitar permisos avanzados como `instagram_business_manage_messages`
+- La app puede operar con cuentas de clientes reales sin restricciones de desarrollo
 
-Lo que habilitó la aprobación:
+Lo que habilitó la verificación:
 - Política de privacidad pública: `https://goupsoluciones.cl/privacidad`
 - Página de eliminación de datos: `https://goupsoluciones.cl/eliminacion-datos`
 - Webhook verificado: `https://goupsoluciones.cl/api/webhooks/instagram`
-- Flujo OAuth de onboarding implementado: `/onboarding/instagram` → `/api/meta/connect` → `/api/meta/callback`
-- Instagram module con estado de conexión y perfil visible en el dashboard
+- Flujo OAuth de onboarding: `/onboarding/instagram` → `/api/meta/connect` → `/api/meta/callback`
+- Instagram module con estado de conexión y perfil en el dashboard
 
-Siguiente paso habilitado:
-- La app ahora puede conectar cuentas profesionales de Instagram reales de clientes
-- El token generado para cada local se guarda en `Local.igToken` en DB
-- El webhook rutea mensajes por `igPageId` al agente del local correspondiente
+Qué habilita a nivel técnico:
+- Conectar cuentas de Instagram profesionales de clientes reales vía OAuth
+- Recibir y responder mensajes de Instagram en producción
+- Tokens de larga duración por local guardados en `Local.igToken`
+- Webhook rutea mensajes por `igPageId` al agente del local correspondiente
 
 ## 26. Fix middleware Edge Runtime — reducción de 1.07 MB a 87 kB
 
