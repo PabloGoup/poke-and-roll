@@ -117,6 +117,16 @@ export async function GET(request: NextRequest) {
       }
     });
 
+    // Suscribir la página al campo messages para que Meta envíe DMs al webhook
+    await fetch(`${META_GRAPH_URL}/${pageWithInstagram.id}/subscribed_apps`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        subscribed_fields: "messages,messaging_postbacks",
+        access_token: pageWithInstagram.access_token
+      })
+    }).catch(() => null);
+
     return redirectDashboard(request, { meta: "conectado", local: local.slug });
   } catch (callbackError) {
     return redirectDashboard(request, {
