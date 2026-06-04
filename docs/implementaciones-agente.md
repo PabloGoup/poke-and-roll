@@ -1,6 +1,47 @@
 # Implementaciones del agente omnicanal
 
-Ultima actualizacion: 2026-06-01 17:07:06 -04
+Ultima actualizacion: 2026-06-03
+
+## 25. Revisión de Meta aprobada — App GoUp Social AI
+
+Fecha: 2026-06-03
+
+Estado: **APROBADO**
+
+Permisos aprobados:
+- `instagram_business_basic` — leer perfil y metadata de cuentas profesionales de Instagram
+- `instagram_business_manage_messages` — enviar y recibir mensajes vía Instagram Messaging API
+
+Lo que habilitó la aprobación:
+- Política de privacidad pública: `https://goupsoluciones.cl/privacidad`
+- Página de eliminación de datos: `https://goupsoluciones.cl/eliminacion-datos`
+- Webhook verificado: `https://goupsoluciones.cl/api/webhooks/instagram`
+- Flujo OAuth de onboarding implementado: `/onboarding/instagram` → `/api/meta/connect` → `/api/meta/callback`
+- Instagram module con estado de conexión y perfil visible en el dashboard
+
+Siguiente paso habilitado:
+- La app ahora puede conectar cuentas profesionales de Instagram reales de clientes
+- El token generado para cada local se guarda en `Local.igToken` en DB
+- El webhook rutea mensajes por `igPageId` al agente del local correspondiente
+
+## 26. Fix middleware Edge Runtime — reducción de 1.07 MB a 87 kB
+
+Fecha: 2026-06-03
+
+Problema:
+- Vercel Hobby tiene límite de 1 MB para Edge Functions
+- El middleware importaba `auth` de `auth.ts` que incluye `bcryptjs` y `@prisma/client` (Node.js APIs)
+- Build fallaba: "Edge Function middleware size is 1.07 MB and your plan size limit is 1 MB"
+
+Solución (patrón estándar next-auth v5):
+- `auth.config.ts`: solo callbacks y pages config, sin dependencias Node.js → Edge-compatible
+- `auth.ts`: extiende `authConfig` + providers con DB/bcrypt → Node.js runtime
+- `middleware.ts`: importa solo `authConfig` → 87 kB
+
+Archivos:
+- `auth.config.ts` (nuevo)
+- `auth.ts` (simplificado)
+- `middleware.ts` (usa authConfig en vez de auth)
 
 Este documento registra mejoras implementadas, decisiones tecnicas y pendientes relevantes para no perder contexto entre iteraciones.
 
