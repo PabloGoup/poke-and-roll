@@ -99,9 +99,22 @@ export async function GET(request: NextRequest) {
       throw new Error(accountsData?.error?.message || "No se pudieron leer las paginas de Meta");
     }
 
+    console.log("[Meta callback] Páginas recibidas:", JSON.stringify(accountsData.data?.map(p => ({
+      id: p.id,
+      name: p.name,
+      hasToken: !!p.access_token,
+      igId: p.instagram_business_account?.id
+    }))));
+
     const pageWithInstagram = accountsData.data.find(
       (page) => page.access_token && page.instagram_business_account?.id
     );
+
+    console.log("[Meta callback] pageWithInstagram:", JSON.stringify({
+      id: pageWithInstagram?.id,
+      igId: pageWithInstagram?.instagram_business_account?.id,
+      hasToken: !!pageWithInstagram?.access_token
+    }));
 
     if (!pageWithInstagram?.access_token || !pageWithInstagram.instagram_business_account?.id) {
       throw new Error("No se encontro una pagina con cuenta profesional de Instagram conectada");
