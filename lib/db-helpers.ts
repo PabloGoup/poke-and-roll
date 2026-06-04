@@ -93,26 +93,24 @@ export async function guardarDecision(params: {
   decisionSeguridad: string;
   requiereHumano: boolean;
 }) {
-  await prisma.$transaction([
-    prisma.decisionAgente.create({
-      data: {
-        conversacionId: params.conversacionId,
-        agente: params.agente,
-        intencion: params.intencion,
-        entrada: params.entrada,
-        salida: params.salida,
-        decisionSeguridad: params.decisionSeguridad
-      }
-    }),
-    prisma.conversacion.update({
-      where: { id: params.conversacionId },
-      data: {
-        ultimaIntencion: params.intencion,
-        requiereHumano: params.requiereHumano,
-        estado: params.requiereHumano
-          ? EstadoConversacion.esperando_humano
-          : EstadoConversacion.activa
-      }
-    })
-  ]);
+  await prisma.decisionAgente.create({
+    data: {
+      conversacionId: params.conversacionId,
+      agente: params.agente,
+      intencion: params.intencion,
+      entrada: params.entrada,
+      salida: params.salida,
+      decisionSeguridad: params.decisionSeguridad
+    }
+  });
+  await prisma.conversacion.update({
+    where: { id: params.conversacionId },
+    data: {
+      ultimaIntencion: params.intencion,
+      requiereHumano: params.requiereHumano,
+      estado: params.requiereHumano
+        ? EstadoConversacion.esperando_humano
+        : EstadoConversacion.activa
+    }
+  });
 }
