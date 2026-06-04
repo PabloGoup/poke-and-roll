@@ -24,8 +24,7 @@ export async function POST(request: Request) {
     : null;
 
   // Fallback: si no hay local configurado aún, usar token de entorno
-  // (compatibilidad con el setup single-tenant de Poke & Roll)
-  const igToken = local?.igToken ?? process.env.META_ACCESS_TOKEN ?? null;
+  const igToken = local?.fbToken ?? local?.igToken ?? process.env.META_ACCESS_TOKEN ?? null;
 
   if (!igToken) {
     return NextResponse.json({ ok: false, error: "Local no encontrado o sin token IG" }, { status: 400 });
@@ -99,6 +98,7 @@ export async function POST(request: Request) {
       recipientId: senderId,
       texto: decision.respuesta,
       token: igToken,
+      fbPageId: local?.fbPageId,
       igPageId: local?.igPageId
     });
 
@@ -116,6 +116,7 @@ export async function POST(request: Request) {
       recipientId: senderId,
       texto: decision.respuesta,
       token: igToken,
+      fbPageId: local?.fbPageId,
       igPageId: local?.igPageId
     });
   }

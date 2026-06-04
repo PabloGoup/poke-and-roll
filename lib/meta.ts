@@ -57,21 +57,23 @@ export async function enviarInstagramTexto(params: {
   });
 }
 
-/** Versión multi-tenant: recibe el token e igPageId explícitos del local */
+/** Versión multi-tenant: recibe el token e IDs explícitos del local */
 export async function enviarInstagramTextoConToken(params: {
   recipientId: string;
   texto: string;
   token: string | null;
   igPageId?: string | null;
+  fbPageId?: string | null;
 }) {
-  const igBusinessId = params.igPageId ?? process.env.INSTAGRAM_BUSINESS_ACCOUNT_ID;
+  // Messenger Platform usa el Facebook Page ID como sender; fallback al IG Business ID
+  const senderId = params.fbPageId ?? params.igPageId ?? process.env.FACEBOOK_PAGE_ID ?? process.env.INSTAGRAM_BUSINESS_ACCOUNT_ID;
 
-  if (!params.token || !igBusinessId) {
-    console.error("[IG] Falta token o igBusinessId", { token: !!params.token, igBusinessId });
-    return { ok: false, modo: "simulado", detalle: "Falta token IG o INSTAGRAM_BUSINESS_ACCOUNT_ID" };
+  if (!params.token || !senderId) {
+    console.error("[IG] Falta token o senderId", { token: !!params.token, senderId });
+    return { ok: false, modo: "simulado", detalle: "Falta token IG o Page ID" };
   }
 
-  const response = await fetch(`${GRAPH_URL}/${igBusinessId}/messages`, {
+  const response = await fetch(`${GRAPH_URL}/${senderId}/messages`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${params.token}`,
@@ -85,7 +87,7 @@ export async function enviarInstagramTextoConToken(params: {
 
   const data = await response.json().catch(() => null);
   if (!response.ok) {
-    console.error("[IG] Error Graph API", { status: response.status, igBusinessId, data });
+    console.error("[IG] Error Graph API", { status: response.status, senderId, data });
   }
   return { ok: response.ok, modo: "real", status: response.status, data };
 }
