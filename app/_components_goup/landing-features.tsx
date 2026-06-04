@@ -57,7 +57,7 @@ const integrationGroups = [
     items: [
       { name: "Gemini",    src: "https://cdn.simpleicons.org/googlegemini/8E75B7" },
       { name: "Claude",    src: "https://cdn.simpleicons.org/anthropic/D4A27F"    },
-      { name: "OpenAI",    src: "https://cdn.simpleicons.org/openai/ffffff"        },
+      { name: "OpenAI",    src: "https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/openai.svg", invert: true },
     ],
   },
   {
@@ -249,7 +249,8 @@ export function LandingFeatures() {
                 {group.items.map((item) => (
                   <div className="goup-integration-tile" key={item.name} title={item.name}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={item.src} alt={item.name} width={28} height={28} loading="lazy" />
+                    <img src={item.src} alt={item.name} width={28} height={28} loading="lazy"
+                      style={(item as { invert?: boolean }).invert ? { filter: "invert(1)" } : undefined} />
                     <span>{item.name}</span>
                   </div>
                 ))}
