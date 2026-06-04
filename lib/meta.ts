@@ -57,15 +57,17 @@ export async function enviarInstagramTexto(params: {
   });
 }
 
-/** Versión multi-tenant: recibe el token explícito del local */
+/** Versión multi-tenant: recibe el token e igPageId explícitos del local */
 export async function enviarInstagramTextoConToken(params: {
   recipientId: string;
   texto: string;
   token: string | null;
+  igPageId?: string | null;
 }) {
-  const igBusinessId = process.env.INSTAGRAM_BUSINESS_ACCOUNT_ID;
+  const igBusinessId = params.igPageId ?? process.env.INSTAGRAM_BUSINESS_ACCOUNT_ID;
 
   if (!params.token || !igBusinessId) {
+    console.error("[IG] Falta token o igBusinessId", { token: !!params.token, igBusinessId });
     return { ok: false, modo: "simulado", detalle: "Falta token IG o INSTAGRAM_BUSINESS_ACCOUNT_ID" };
   }
 
@@ -81,12 +83,11 @@ export async function enviarInstagramTextoConToken(params: {
     })
   });
 
-  return {
-    ok: response.ok,
-    modo: "real",
-    status: response.status,
-    data: await response.json().catch(() => null)
-  };
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    console.error("[IG] Error Graph API", { status: response.status, igBusinessId, data });
+  }
+  return { ok: response.ok, modo: "real", status: response.status, data };
 }
 
 export async function enviarFacebookTexto(params: {

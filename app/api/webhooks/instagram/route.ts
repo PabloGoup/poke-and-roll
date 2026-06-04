@@ -98,7 +98,8 @@ export async function POST(request: Request) {
     const envio = await enviarInstagramTextoConToken({
       recipientId: senderId,
       texto: decision.respuesta,
-      token: igToken
+      token: igToken,
+      igPageId: local?.igPageId
     });
 
     if (envio.ok) {
@@ -109,11 +110,13 @@ export async function POST(request: Request) {
         texto: decision.respuesta
       });
     }
-  } catch {
+  } catch (err) {
+    console.error("[IG webhook] Error en persistencia, intentando enviar igual:", err);
     await enviarInstagramTextoConToken({
       recipientId: senderId,
       texto: decision.respuesta,
-      token: igToken
+      token: igToken,
+      igPageId: local?.igPageId
     });
   }
 
