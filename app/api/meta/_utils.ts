@@ -90,6 +90,6 @@ export function decodeMetaState(state: string | null): MetaLocalContext {
 export function getMetaScopes() {
   return (
     process.env.META_OAUTH_SCOPES?.trim() ||
-    "instagram_business_basic,instagram_business_manage_messages,pages_show_list,pages_read_engagement"
+    "instagram_basic,instagram_manage_messages,pages_show_list,pages_read_engagement,pages_manage_metadata"
   );
 }
