@@ -7,27 +7,24 @@ export async function upsertCliente(params: {
   nombre?: string;
   localId?: string;
 }) {
-  const localConnect = params.localId ? { local: { connect: { id: params.localId } } } : {};
+  const localConnect = params.localId ? { localId: params.localId } : {};
+  const updateData = { ...localConnect, ...(params.nombre ? { nombre: params.nombre } : {}) };
 
-  if (params.canal === "whatsapp") {
-    return prisma.cliente.upsert({
-      where: { whatsappId: params.canalId },
-      create: { whatsappId: params.canalId, nombre: params.nombre, ...localConnect },
-      update: { ...localConnect, ...(params.nombre ? { nombre: params.nombre } : {}) }
-    });
+  const whereField =
+    params.canal === "whatsapp" ? { whatsappId: params.canalId } :
+    params.canal === "instagram" ? { instagramId: params.canalId } :
+    { facebookId: params.canalId };
+
+  const createField =
+    params.canal === "whatsapp" ? { whatsappId: params.canalId } :
+    params.canal === "instagram" ? { instagramId: params.canalId } :
+    { facebookId: params.canalId };
+
+  const existente = await prisma.cliente.findUnique({ where: whereField });
+  if (existente) {
+    return prisma.cliente.update({ where: { id: existente.id }, data: updateData });
   }
-  if (params.canal === "instagram") {
-    return prisma.cliente.upsert({
-      where: { instagramId: params.canalId },
-      create: { instagramId: params.canalId, nombre: params.nombre, ...localConnect },
-      update: { ...localConnect, ...(params.nombre ? { nombre: params.nombre } : {}) }
-    });
-  }
-  return prisma.cliente.upsert({
-    where: { facebookId: params.canalId },
-    create: { facebookId: params.canalId, nombre: params.nombre, ...localConnect },
-    update: { ...localConnect, ...(params.nombre ? { nombre: params.nombre } : {}) }
-  });
+  return prisma.cliente.create({ data: { ...createField, nombre: params.nombre, ...localConnect } });
 }
 
 export async function obtenerOCrearConversacion(params: {
