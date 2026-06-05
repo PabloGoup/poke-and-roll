@@ -65,8 +65,8 @@ export async function enviarInstagramTextoConToken(params: {
   igPageId?: string | null;
   fbPageId?: string | null;
 }) {
-  // Messenger Platform usa el Facebook Page ID como sender; fallback al IG Business ID
-  const senderId = params.fbPageId ?? params.igPageId ?? process.env.FACEBOOK_PAGE_ID ?? process.env.INSTAGRAM_BUSINESS_ACCOUNT_ID;
+  // Instagram Graph API usa el IG Business Account ID; fbPageId es para Messenger Platform (pages_messaging)
+  const senderId = params.igPageId ?? params.fbPageId ?? process.env.INSTAGRAM_BUSINESS_ACCOUNT_ID ?? process.env.FACEBOOK_PAGE_ID;
 
   if (!params.token || !senderId) {
     console.error("[IG] Falta token o senderId", { token: !!params.token, senderId });
