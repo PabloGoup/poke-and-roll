@@ -55,53 +55,46 @@ export async function PUT(request: Request) {
 
   const { reglas, items, imagenes } = parsed.data;
 
-  await prisma.$transaction(async (tx) => {
-    for (const regla of reglas) {
-      await tx.reglaComercialAgente.upsert({
-        where: { id: regla.id },
-        create: regla,
-        update: regla
-      });
+  // Reglas: find + create/update (upsert usa transacción implícita en Neon HTTP)
+  for (const regla of reglas) {
+    const existe = await prisma.reglaComercialAgente.findUnique({ where: { id: regla.id } });
+    if (existe) {
+      await prisma.reglaComercialAgente.update({ where: { id: regla.id }, data: regla });
+    } else {
+      await prisma.reglaComercialAgente.create({ data: regla });
     }
+  }
 
-    await tx.itemComercialDestacado.deleteMany({});
-    if (items.length > 0) {
-      await tx.itemComercialDestacado.createMany({
-        data: items.map((item) => ({
-          id: item.id,
-          tipo: item.tipo,
-          nombre: item.nombre,
-          detalle: item.detalle,
-          precioTexto: item.precioTexto,
-          activo: item.activo
-        }))
-      });
-    }
+  // Items: borrar y recrear
+  await prisma.$executeRawUnsafe('DELETE FROM "items_comerciales_destacados"');
+  for (const item of items) {
+    await prisma.itemComercialDestacado.create({
+      data: {
+        id: item.id,
+        tipo: item.tipo,
+        nombre: item.nombre,
+        detalle: item.detalle,
+        precioTexto: item.precioTexto,
+        activo: item.activo
+      }
+    });
+  }
 
-    await tx.catalogoVisualAgente.updateMany({ data: { prioridadEnvio: false, activo: false } });
-    for (const imagen of imagenes) {
-      await tx.catalogoVisualAgente.upsert({
+  // Catálogo visual: reset y upsert manual
+  await prisma.$executeRawUnsafe('UPDATE "catalogos_visuales_agente" SET "prioridad_envio" = false, "activo" = false');
+  for (const imagen of imagenes) {
+    const existeImg = await prisma.catalogoVisualAgente.findUnique({ where: { id: imagen.id ?? "" } });
+    if (existeImg) {
+      await prisma.catalogoVisualAgente.update({
         where: { id: imagen.id ?? "" },
-        create: {
-          id: imagen.id,
-          nombre: imagen.nombre,
-          url: imagen.url,
-          storagePath: imagen.storagePath,
-          tipo: imagen.tipo,
-          prioridadEnvio: imagen.prioridadEnvio,
-          activo: imagen.activo
-        },
-        update: {
-          nombre: imagen.nombre,
-          url: imagen.url,
-          storagePath: imagen.storagePath,
-          tipo: imagen.tipo,
-          prioridadEnvio: imagen.prioridadEnvio,
-          activo: imagen.activo
-        }
+        data: { nombre: imagen.nombre, url: imagen.url, storagePath: imagen.storagePath, tipo: imagen.tipo, prioridadEnvio: imagen.prioridadEnvio, activo: imagen.activo }
+      });
+    } else {
+      await prisma.catalogoVisualAgente.create({
+        data: { id: imagen.id, nombre: imagen.nombre, url: imagen.url, storagePath: imagen.storagePath, tipo: imagen.tipo, prioridadEnvio: imagen.prioridadEnvio, activo: imagen.activo }
       });
     }
-  });
+  }
 
   const config = await obtenerConfiguracionComercial();
   return NextResponse.json({ ok: true, config });

@@ -141,7 +141,7 @@ export async function POST(request: Request) {
   // Flujo directo: browser ya subió a Supabase, solo guardamos metadata
   if (body?.publicUrl && body?.storagePath) {
     const { publicUrl, storagePath, nombre, tipo, prioridadEnvio } = body;
-    if (prioridadEnvio) await prisma.catalogoVisualAgente.updateMany({ data: { prioridadEnvio: false } });
+    if (prioridadEnvio) await prisma.$executeRawUnsafe('UPDATE "catalogos_visuales_agente" SET "prioridad_envio" = false');
     const imagen = await prisma.catalogoVisualAgente.create({
       data: {
         nombre: nombre ?? "imagen",
