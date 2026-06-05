@@ -92,6 +92,43 @@ export async function enviarInstagramTextoConToken(params: {
   return { ok: response.ok, modo: "real", status: response.status, data };
 }
 
+export async function enviarInstagramImagenConToken(params: {
+  recipientId: string;
+  imageUrl: string;
+  token: string | null;
+  igPageId?: string | null;
+  fbPageId?: string | null;
+}) {
+  const senderId = params.fbPageId ?? params.igPageId ?? process.env.FACEBOOK_PAGE_ID ?? process.env.INSTAGRAM_BUSINESS_ACCOUNT_ID;
+
+  if (!params.token || !senderId) {
+    return { ok: false, modo: "simulado", detalle: "Falta token IG o Page ID" };
+  }
+
+  const response = await fetch(`${GRAPH_URL}/${senderId}/messages`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${params.token}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      recipient: { id: params.recipientId },
+      message: {
+        attachment: {
+          type: "image",
+          payload: { url: params.imageUrl, is_reusable: true }
+        }
+      }
+    })
+  });
+
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    console.error("[IG] Error enviando imagen", { status: response.status, senderId, data });
+  }
+  return { ok: response.ok, modo: "real", status: response.status, data };
+}
+
 export async function enviarFacebookTexto(params: {
   recipientId: string;
   texto: string;

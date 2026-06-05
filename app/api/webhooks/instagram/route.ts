@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { generarRespuesta } from "@/lib/agente";
-import { enviarInstagramTextoConToken, verificarWebhook } from "@/lib/meta";
+import { enviarInstagramImagenConToken, enviarInstagramTextoConToken, verificarWebhook } from "@/lib/meta";
 import { guardarDecision, guardarMensaje, obtenerOCrearConversacion, upsertCliente } from "@/lib/db-helpers";
 import { prisma } from "@/lib/prisma";
 
@@ -109,6 +109,19 @@ export async function POST(request: Request) {
         direccion: "saliente",
         texto: decision.respuesta
       });
+
+      // Enviar imagen del catálogo si existe y no es PDF
+      const catalogo = decision.catalogoVisual;
+      const esPdf = catalogo?.url?.includes("/api/catalogo/pdf") || catalogo?.nombre?.toLowerCase().endsWith(".pdf");
+      if (catalogo?.url && !esPdf) {
+        await enviarInstagramImagenConToken({
+          recipientId: senderId,
+          imageUrl: catalogo.url,
+          token: igToken,
+          fbPageId: local?.fbPageId,
+          igPageId: local?.igPageId
+        });
+      }
     }
   } catch (err) {
     console.error("[IG webhook] Error en persistencia, intentando enviar igual:", err);
