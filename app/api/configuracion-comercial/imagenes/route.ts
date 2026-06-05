@@ -101,8 +101,61 @@ async function subirSupabase(file: File, config: { url: string; key: string; buc
   };
 }
 
+// GET: genera una signed URL para que el browser suba directo a Supabase
+export async function GET(request: Request) {
+  const config = supabaseConfig();
+  if (!config) return NextResponse.json({ ok: false, error: "Supabase no configurado" }, { status: 500 });
+
+  const { searchParams } = new URL(request.url);
+  const nombre = searchParams.get("nombre") ?? "imagen";
+  const mimeType = searchParams.get("mime") ?? "image/png";
+
+  const extension = mimeType === "image/jpeg" ? "jpg" : mimeType === "image/webp" ? "webp" : mimeType === "application/pdf" ? "pdf" : "png";
+  const storagePath = `agente/${Date.now()}-${crypto.randomUUID()}.${extension}`;
+
+  await asegurarBucket(config);
+
+  const signRes = await fetch(`${config.url}/storage/v1/object/sign/upload/${config.bucket}/${storagePath}`, {
+    method: "POST",
+    headers: storageHeaders(config.key, "application/json"),
+    body: JSON.stringify({})
+  });
+
+  if (!signRes.ok) {
+    const err = await signRes.text().catch(() => "");
+    return NextResponse.json({ ok: false, error: err || `Supabase ${signRes.status}` }, { status: 500 });
+  }
+
+  const { signedURL, token } = await signRes.json();
+  const uploadUrl = `${config.url}${signedURL}`;
+  const publicUrl = `${config.url}/storage/v1/object/public/${config.bucket}/${storagePath}`;
+
+  return NextResponse.json({ ok: true, uploadUrl, token, storagePath, publicUrl, nombre });
+}
+
+// POST: guarda en DB la imagen ya subida a Supabase (o sube localmente como fallback)
 export async function POST(request: Request) {
   const config = supabaseConfig();
+  const body = await request.json().catch(() => null);
+
+  // Flujo directo: browser ya subió a Supabase, solo guardamos metadata
+  if (body?.publicUrl && body?.storagePath) {
+    const { publicUrl, storagePath, nombre, tipo, prioridadEnvio } = body;
+    if (prioridadEnvio) await prisma.catalogoVisualAgente.updateMany({ data: { prioridadEnvio: false } });
+    const imagen = await prisma.catalogoVisualAgente.create({
+      data: {
+        nombre: nombre ?? "imagen",
+        url: publicUrl,
+        storagePath,
+        tipo: normalizarTipo(tipo ?? "catalogo"),
+        prioridadEnvio: Boolean(prioridadEnvio),
+        activo: true
+      }
+    });
+    return NextResponse.json({ ok: true, imagen, storageProvider: "supabase" });
+  }
+
+  // Flujo legacy: recibe el archivo (solo para compatibilidad local/dev)
   const formData = await request.formData().catch(() => null);
   const file = formData?.get("file");
   const tipo = String(formData?.get("tipo") ?? "catalogo");
@@ -123,13 +176,12 @@ export async function POST(request: Request) {
     if (!config) throw new Error("Supabase Storage no configurado");
     uploaded = await subirSupabase(file, config);
     storageProvider = "supabase";
-  } catch {
+  } catch (err) {
+    console.error("[Catalogo upload] Fallo Supabase, usando local:", err);
     uploaded = await guardarImagenLocal(file);
   }
 
-  if (prioridadEnvio) {
-    await prisma.catalogoVisualAgente.updateMany({ data: { prioridadEnvio: false } });
-  }
+  if (prioridadEnvio) await prisma.catalogoVisualAgente.updateMany({ data: { prioridadEnvio: false } });
 
   const imagen = await prisma.catalogoVisualAgente.create({
     data: {

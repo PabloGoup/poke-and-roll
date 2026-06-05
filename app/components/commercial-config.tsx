@@ -209,17 +209,45 @@ export function CommercialConfig() {
     try {
       const nuevas: ImagenCatalogo[] = [];
       for (const [index, file] of files.entries()) {
-        const body = new FormData();
-        body.append("file", file);
-        body.append("tipo", "catalogo");
-        body.append("prioridadEnvio", String(imagenes.length === 0 && index === 0));
+        const esPrioritaria = imagenes.length === 0 && index === 0;
 
-        const res = await fetch("/api/configuracion-comercial/imagenes", {
-          method: "POST",
-          body
+        // 1. Pedir signed URL al servidor
+        const signRes = await fetch(
+          `/api/configuracion-comercial/imagenes?nombre=${encodeURIComponent(file.name)}&mime=${encodeURIComponent(file.type)}`
+        );
+        const signData = await signRes.json();
+
+        if (!signRes.ok || !signData.uploadUrl) {
+          console.error("Error obteniendo signed URL:", signData);
+          continue;
+        }
+
+        // 2. Subir directo a Supabase desde el browser
+        const uploadRes = await fetch(signData.uploadUrl, {
+          method: "PUT",
+          headers: { "Content-Type": file.type },
+          body: file
         });
-        const data = await res.json();
-        if (data.ok) nuevas.push(data.imagen);
+
+        if (!uploadRes.ok) {
+          console.error("Error subiendo a Supabase:", uploadRes.status);
+          continue;
+        }
+
+        // 3. Guardar metadata en DB
+        const saveRes = await fetch("/api/configuracion-comercial/imagenes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            publicUrl: signData.publicUrl,
+            storagePath: signData.storagePath,
+            nombre: file.name,
+            tipo: "catalogo",
+            prioridadEnvio: esPrioritaria
+          })
+        });
+        const saveData = await saveRes.json();
+        if (saveData.ok) nuevas.push(saveData.imagen);
       }
 
       setImagenes((prev) => [...nuevas, ...prev.map((img) => nuevas.some((n) => n.prioridadEnvio) ? { ...img, prioridadEnvio: false } : img)]);
