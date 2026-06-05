@@ -117,8 +117,7 @@ export async function GET(request: Request) {
 
   const signRes = await fetch(`${config.url}/storage/v1/object/sign/upload/${config.bucket}/${storagePath}`, {
     method: "POST",
-    headers: storageHeaders(config.key, "application/json"),
-    body: JSON.stringify({})
+    headers: storageHeaders(config.key)
   });
 
   if (!signRes.ok) {
