@@ -419,6 +419,7 @@ Reglas:
 - Para preguntas de costo de despacho sin dirección: muestra los rangos de zonas que aparezcan en el contexto (ej: "hasta 3 km $2.000, hasta 7 km $3.500") y luego pregunta la dirección del cliente
 - Si el contexto incluye "INFORMACION DE DESPACHO CALCULADA": usa exactamente esos datos para informar el costo ("Para esa dirección el despacho es $X, aprox Y km, tiempo estimado Z-W min"). Pregunta si confirma o si necesita algo más
 - Si "INFORMACION DE DESPACHO CALCULADA" dice que la dirección está FUERA DEL ÁREA DE DESPACHO: responde amablemente que lamentablemente no cubrimos esa zona (ej: "Lamentablemente no llegamos a esa dirección, nuestro despacho cubre hasta X km") y pon requiereHumano: false — NO escales a humano
+- Si el contexto incluye "INFORMACION DE DESPACHO" (sin "CALCULADA"): recibiste una dirección pero no hay cálculo exacto — confirma la dirección al cliente y menciona que el equipo verificará el costo antes de procesar. No escales a humano
 - Nunca inventes un costo de despacho. Solo usa datos del contexto o de INFORMACION DE DESPACHO CALCULADA`;
 
 let openaiClient: OpenAI | null = null;
@@ -619,33 +620,48 @@ export async function generarRespuesta(mensaje: MensajeEntrante): Promise<Decisi
     : null;
 
   let costoDespachoInyectado: string | null = null;
-  if (
-    process.env.GOOGLE_MAPS_API_KEY &&
+  const detectaDireccion =
     mensaje.canal === "whatsapp" &&
     ultimoMensajeAgentePidioDireccion(mensaje.historial) &&
-    pareceDireccion(mensaje.texto)
-  ) {
+    pareceDireccion(mensaje.texto);
+
+  if (detectaDireccion) {
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
     try {
-      const [restaurante, zonasConKm] = await Promise.all([
-        prisma.configuracionRestaurante.findUnique({ where: { id: "restaurante" } }),
-        prisma.zonaDespacho.findMany({ where: { activa: true, distanciaMinKm: { not: null }, distanciaMaxKm: { not: null } } })
-      ]);
-      if (restaurante?.latitud && restaurante?.longitud && zonasConKm.length > 0) {
-        const resultado = await calcularCostoDespacho(
-          mensaje.texto,
-          restaurante.latitud,
-          restaurante.longitud,
-          zonasConKm as Parameters<typeof calcularCostoDespacho>[3],
-          process.env.GOOGLE_MAPS_API_KEY
-        );
-        if (resultado) {
-          costoDespachoInyectado = `INFORMACION DE DESPACHO CALCULADA: dirección recibida, distancia al local ${resultado.distanciaKm.toFixed(1)} km, tarifa "${resultado.zona.nombre}" → ${formatearPrecio(resultado.zona.costo)}, tiempo estimado ${resultado.zona.tiempoEstimadoMin}-${resultado.zona.tiempoEstimadoMax} min.`;
-        } else {
-          costoDespachoInyectado = "INFORMACION DE DESPACHO CALCULADA: dirección recibida y geocodificada, pero está FUERA DEL ÁREA DE DESPACHO configurada. No llegamos a esa dirección. Informa al cliente con amabilidad que lamentablemente no cubrimos esa zona, sin escalar a humano.";
+      if (apiKey) {
+        const [restaurante, zonasConKm] = await Promise.all([
+          prisma.configuracionRestaurante.findUnique({ where: { id: "restaurante" } }),
+          prisma.zonaDespacho.findMany({ where: { activa: true, distanciaMinKm: { not: null }, distanciaMaxKm: { not: null } } })
+        ]);
+        if (restaurante?.latitud && restaurante?.longitud && zonasConKm.length > 0) {
+          const resultado = await calcularCostoDespacho(
+            mensaje.texto,
+            restaurante.latitud,
+            restaurante.longitud,
+            zonasConKm as Parameters<typeof calcularCostoDespacho>[3],
+            apiKey
+          );
+          if (resultado) {
+            costoDespachoInyectado = `INFORMACION DE DESPACHO CALCULADA: dirección recibida, distancia al local ${resultado.distanciaKm.toFixed(1)} km, tarifa "${resultado.zona.nombre}" → ${formatearPrecio(resultado.zona.costo)}, tiempo estimado ${resultado.zona.tiempoEstimadoMin}-${resultado.zona.tiempoEstimadoMax} min.`;
+          } else {
+            costoDespachoInyectado = "INFORMACION DE DESPACHO CALCULADA: dirección recibida y geocodificada, pero está FUERA DEL ÁREA DE DESPACHO configurada. No llegamos a esa dirección. Informa al cliente con amabilidad que lamentablemente no cubrimos esa zona, sin escalar a humano.";
+          }
         }
       }
     } catch {
-      // fail silently — el bot continúa sin precio calculado
+      // fail silently
+    }
+
+    // Fallback: si no se pudo calcular (sin API key, sin restaurante configurado, o error)
+    // igual le indicamos al LLM que recibió una dirección para que no improvise
+    if (!costoDespachoInyectado) {
+      const zonasContexto = contexto.zonasDespacho;
+      if (zonasContexto.length > 0) {
+        const primera = zonasContexto[0];
+        costoDespachoInyectado = `INFORMACION DE DESPACHO: dirección recibida. No se pudo calcular distancia exacta. Usa la información de zonas del contexto para responder (costo base referencial: ${formatearPrecio(primera.costo)}). Confirma la dirección al cliente y menciona que el equipo verificará el costo exacto antes de procesar el pedido. No escales a humano.`;
+      } else {
+        costoDespachoInyectado = "INFORMACION DE DESPACHO: dirección recibida. No hay zonas de despacho configuradas aún. Confirma al cliente que recibiste la dirección y que el equipo le confirmará el costo de despacho antes de procesar el pedido. No escales a humano.";
+      }
     }
   }
 
