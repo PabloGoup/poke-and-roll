@@ -170,6 +170,8 @@ export function CommercialConfig() {
   const [status, setStatus] = useState<string | null>(null);
 
   const accionesActivas = useMemo(() => acciones.filter((a) => a.activa).length, [acciones]);
+  const itemsActivos = useMemo(() => items.filter((item) => item.activo).length, [items]);
+  const tarifasActivas = useMemo(() => tarifas.filter((tarifa) => tarifa.activa).length, [tarifas]);
   const imagenPrioritaria = imagenes.find((img) => img.prioridadEnvio);
 
   useEffect(() => {
@@ -399,6 +401,37 @@ export function CommercialConfig() {
         </div>
       </div>
 
+      <div className="commercial-summary">
+        <article>
+          <Sparkles size={16} />
+          <div>
+            <strong>{accionesActivas}/{acciones.length}</strong>
+            <span>reglas activas</span>
+          </div>
+        </article>
+        <article>
+          <BadgePercent size={16} />
+          <div>
+            <strong>{itemsActivos}</strong>
+            <span>destacados activos</span>
+          </div>
+        </article>
+        <article>
+          <ImagePlus size={16} />
+          <div>
+            <strong>{imagenes.length}</strong>
+            <span>{imagenPrioritaria ? "catalogo priorizado" : "archivos visuales"}</span>
+          </div>
+        </article>
+        <article>
+          <Truck size={16} />
+          <div>
+            <strong>{tarifasActivas}</strong>
+            <span>tarifas activas</span>
+          </div>
+        </article>
+      </div>
+
       <div className="commercial-grid">
         <div className="commercial-block">
           <div className="commercial-block-head">
@@ -468,6 +501,7 @@ export function CommercialConfig() {
                   <div>
                     <strong>{img.prioridadEnvio ? "Primera opcion" : img.nombre}</strong>
                     <select
+                      aria-label={`Tipo de archivo ${img.nombre}`}
                       value={img.tipo}
                       onChange={(e) => setImagenes((prev) => prev.map((item) => item.id === img.id ? { ...item, tipo: e.target.value as ImagenCatalogo["tipo"] } : item))}
                     >
@@ -500,20 +534,33 @@ export function CommercialConfig() {
           <div>
             <span>Edicion rapida</span>
             <h3>Menu y promociones destacadas</h3>
+            <p>Agrega solo productos o promociones que el agente pueda recomendar con seguridad.</p>
           </div>
           <button className="ghost-button" disabled={saving} onClick={guardarConfiguracion} type="button">
             <Save size={14} /> {saving ? "Guardando..." : "Guardar configuracion"}
           </button>
         </div>
 
-        <div className="quick-edit-form">
-          <select value={nuevoItem.tipo} onChange={(e) => setNuevoItem((prev) => ({ ...prev, tipo: e.target.value as ItemEditable["tipo"] }))}>
-            <option value="promocion">Promocion</option>
-            <option value="menu">Menu</option>
-          </select>
-          <input placeholder="Nombre" value={nuevoItem.nombre ?? ""} onChange={(e) => setNuevoItem((prev) => ({ ...prev, nombre: e.target.value }))} />
-          <input placeholder="Precio o descuento" value={nuevoItem.precio ?? ""} onChange={(e) => setNuevoItem((prev) => ({ ...prev, precio: e.target.value }))} />
-          <input placeholder="Detalle para la IA" value={nuevoItem.detalle ?? ""} onChange={(e) => setNuevoItem((prev) => ({ ...prev, detalle: e.target.value }))} />
+        <div className="quick-edit-form quick-edit-form-menu">
+          <label className="config-field">
+            <span>Tipo</span>
+            <select value={nuevoItem.tipo} onChange={(e) => setNuevoItem((prev) => ({ ...prev, tipo: e.target.value as ItemEditable["tipo"] }))}>
+              <option value="promocion">Promocion</option>
+              <option value="menu">Menu</option>
+            </select>
+          </label>
+          <label className="config-field">
+            <span>Nombre</span>
+            <input placeholder="Ej: 30 piezas mixtas" value={nuevoItem.nombre ?? ""} onChange={(e) => setNuevoItem((prev) => ({ ...prev, nombre: e.target.value }))} />
+          </label>
+          <label className="config-field">
+            <span>Precio</span>
+            <input placeholder="$12.500 o 10%" value={nuevoItem.precio ?? ""} onChange={(e) => setNuevoItem((prev) => ({ ...prev, precio: e.target.value }))} />
+          </label>
+          <label className="config-field config-field-wide">
+            <span>Detalle para la IA</span>
+            <input placeholder="Ingredientes, condiciones o criterio para recomendarlo" value={nuevoItem.detalle ?? ""} onChange={(e) => setNuevoItem((prev) => ({ ...prev, detalle: e.target.value }))} />
+          </label>
           <button className="primary-button" onClick={guardarItem} type="button">
             <Plus size={14} /> Agregar
           </button>
@@ -546,66 +593,88 @@ export function CommercialConfig() {
           <div>
             <span>Despacho a domicilio</span>
             <h3>Tarifas por distancia</h3>
+            <p>Define zonas simples para que el agente informe costos sin inventar valores.</p>
           </div>
           <button className="ghost-button" disabled={savingTarifas} onClick={guardarTarifas} type="button">
             <Save size={14} /> {savingTarifas ? "Guardando..." : "Guardar tarifas"}
           </button>
         </div>
 
-        <div style={{ marginBottom: 12, display: "flex", gap: 8, alignItems: "center" }}>
-          <MapPin size={14} style={{ flexShrink: 0, color: "var(--muted)" }} />
-          <input
-            placeholder="Dirección del restaurante (se geocodificará al guardar)"
-            value={restaurante.direccion}
-            onChange={(e) => setRestaurante((prev) => ({ ...prev, direccion: e.target.value }))}
-            style={{ flex: 1, height: 36, border: "1px solid var(--line)", borderRadius: "var(--radius-sm)", background: "var(--surface-2)", padding: "0 10px", fontSize: 13, color: "var(--text)" }}
-          />
+        <div className="delivery-address-row">
+          <MapPin size={16} />
+          <label className="config-field">
+            <span>Direccion base del local</span>
+            <input
+              placeholder="Ej: Av. Principal 123, comuna"
+              value={restaurante.direccion}
+              onChange={(e) => setRestaurante((prev) => ({ ...prev, direccion: e.target.value }))}
+            />
+          </label>
           {restaurante.latitud != null && (
-            <span style={{ fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" }}>
+            <span className="geo-pill">
               {restaurante.latitud.toFixed(4)}, {restaurante.longitud?.toFixed(4)}
             </span>
           )}
         </div>
 
-        <div className="quick-edit-form" style={{ gridTemplateColumns: "1.4fr 70px 70px 90px 60px 60px auto" }}>
-          <input
-            placeholder="Nombre (ej: Zona centro)"
-            value={nuevaTarifa.nombre ?? ""}
-            onChange={(e) => setNuevaTarifa((prev) => ({ ...prev, nombre: e.target.value }))}
-          />
-          <input
-            type="number" placeholder="Min km" min={0} step={0.5}
-            value={nuevaTarifa.distanciaMinKm ?? ""}
-            onChange={(e) => setNuevaTarifa((prev) => ({ ...prev, distanciaMinKm: parseFloat(e.target.value) || 0 }))}
-          />
-          <input
-            type="number" placeholder="Max km" min={0} step={0.5}
-            value={nuevaTarifa.distanciaMaxKm ?? ""}
-            onChange={(e) => setNuevaTarifa((prev) => ({ ...prev, distanciaMaxKm: parseFloat(e.target.value) || 0 }))}
-          />
-          <input
-            type="number" placeholder="Costo $" min={0} step={100}
-            value={nuevaTarifa.costoPesos ?? ""}
-            onChange={(e) => setNuevaTarifa((prev) => ({ ...prev, costoPesos: parseInt(e.target.value) || 0 }))}
-          />
-          <input
-            type="number" placeholder="T.min" min={0}
-            value={nuevaTarifa.tiempoMinMin ?? ""}
-            onChange={(e) => setNuevaTarifa((prev) => ({ ...prev, tiempoMinMin: parseInt(e.target.value) || 0 }))}
-          />
-          <input
-            type="number" placeholder="T.max" min={0}
-            value={nuevaTarifa.tiempoMaxMin ?? ""}
-            onChange={(e) => setNuevaTarifa((prev) => ({ ...prev, tiempoMaxMin: parseInt(e.target.value) || 0 }))}
-          />
+        <div className="quick-edit-form tariff-form">
+          <label className="config-field tariff-name">
+            <span>Zona</span>
+            <input
+              placeholder="Ej: Zona centro"
+              value={nuevaTarifa.nombre ?? ""}
+              onChange={(e) => setNuevaTarifa((prev) => ({ ...prev, nombre: e.target.value }))}
+            />
+          </label>
+          <label className="config-field">
+            <span>Min km</span>
+            <input
+              type="number" placeholder="0" min={0} step={0.5}
+              value={nuevaTarifa.distanciaMinKm ?? ""}
+              onChange={(e) => setNuevaTarifa((prev) => ({ ...prev, distanciaMinKm: parseFloat(e.target.value) || 0 }))}
+            />
+          </label>
+          <label className="config-field">
+            <span>Max km</span>
+            <input
+              type="number" placeholder="3" min={0} step={0.5}
+              value={nuevaTarifa.distanciaMaxKm ?? ""}
+              onChange={(e) => setNuevaTarifa((prev) => ({ ...prev, distanciaMaxKm: parseFloat(e.target.value) || 0 }))}
+            />
+          </label>
+          <label className="config-field">
+            <span>Costo</span>
+            <input
+              type="number" placeholder="2500" min={0} step={100}
+              value={nuevaTarifa.costoPesos ?? ""}
+              onChange={(e) => setNuevaTarifa((prev) => ({ ...prev, costoPesos: parseInt(e.target.value) || 0 }))}
+            />
+          </label>
+          <label className="config-field">
+            <span>Min</span>
+            <input
+              type="number" placeholder="30" min={0}
+              value={nuevaTarifa.tiempoMinMin ?? ""}
+              onChange={(e) => setNuevaTarifa((prev) => ({ ...prev, tiempoMinMin: parseInt(e.target.value) || 0 }))}
+            />
+          </label>
+          <label className="config-field">
+            <span>Max</span>
+            <input
+              type="number" placeholder="45" min={0}
+              value={nuevaTarifa.tiempoMaxMin ?? ""}
+              onChange={(e) => setNuevaTarifa((prev) => ({ ...prev, tiempoMaxMin: parseInt(e.target.value) || 0 }))}
+            />
+          </label>
           <button className="primary-button" onClick={agregarTarifa} type="button">
             <Plus size={14} /> Agregar
           </button>
         </div>
 
         {tarifas.length === 0 ? (
-          <div style={{ padding: "18px 0", textAlign: "center", color: "var(--muted)", fontSize: 13 }}>
-            <Truck size={22} style={{ marginBottom: 6, opacity: 0.4 }} />
+          <div className="delivery-empty">
+            <Truck size={22} />
+            <strong>Sin tarifas configuradas</strong>
             <p>Aún no hay tarifas configuradas. Agrega rangos de km con su costo de despacho.</p>
           </div>
         ) : (

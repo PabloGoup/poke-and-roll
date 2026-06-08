@@ -315,6 +315,30 @@ Validacion:
 
 - `npm run lint`: OK con 8 warnings preexistentes en componentes no relacionados.
 
+## 25. Mejora visual de configuracion comercial
+
+Fecha: 2026-06-08
+
+Archivos:
+
+- `app/components/commercial-config.tsx`
+- `app/globals.css`
+
+Cambios realizados:
+
+- Se agrego una fila de resumen operativo con reglas activas, destacados, archivos visuales y tarifas activas.
+- Se reordeno la edicion rapida de menu/promociones con labels visibles, placeholders mas claros y boton de accion estable.
+- Se elimino estilo inline de la seccion de despacho y se reemplazo por clases reutilizables.
+- Se mejoro el formulario de tarifas con campos agrupados por zona, rango de km, costo y tiempo estimado.
+- Se agregaron estados vacios mas claros para catalogo visual y tarifas de despacho.
+- Se ajustaron transiciones de botones y tarjetas con propiedades especificas, foco visible en inputs y `:active` en controles presionables.
+- Se agregaron reglas responsive para que la configuracion no quede apretada en pantallas medianas o moviles.
+
+Validacion:
+
+- `npm run lint`: OK con 9 warnings preexistentes en componentes no relacionados.
+- `npm run build`: OK con warnings preexistentes de Next/ESLint.
+
 ## 26. Politica de Instagram/Facebook como canales de derivacion
 
 Fecha: 2026-06-07
