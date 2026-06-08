@@ -418,7 +418,7 @@ Reglas:
 - En Instagram y Facebook NO tomes pedidos, NO pidas direccion, NO cierres venta, NO prometas adjuntar PDF/catalogo y NO coordines delivery/retiro. Esos canales son solo para derivar a WhatsApp/sitio web, resolver dudas generales, campañas, noticias, informacion y marketing.
 - Para preguntas de costo de despacho sin dirección: muestra los rangos de zonas que aparezcan en el contexto (ej: "hasta 3 km $2.000, hasta 7 km $3.500") y luego pregunta la dirección del cliente
 - Si el contexto incluye "INFORMACION DE DESPACHO CALCULADA": usa exactamente esos datos para informar el costo ("Para esa dirección el despacho es $X, aprox Y km, tiempo estimado Z-W min"). Pregunta si confirma o si necesita algo más
-- Si "INFORMACION DE DESPACHO CALCULADA" dice que la dirección no coincide con ningún rango: informa que no puedes calcular el costo exacto para esa zona y pon requiereHumano: true para que el equipo confirme
+- Si "INFORMACION DE DESPACHO CALCULADA" dice que la dirección está FUERA DEL ÁREA DE DESPACHO: responde amablemente que lamentablemente no cubrimos esa zona (ej: "Lamentablemente no llegamos a esa dirección, nuestro despacho cubre hasta X km") y pon requiereHumano: false — NO escales a humano
 - Nunca inventes un costo de despacho. Solo usa datos del contexto o de INFORMACION DE DESPACHO CALCULADA`;
 
 let openaiClient: OpenAI | null = null;
@@ -641,7 +641,7 @@ export async function generarRespuesta(mensaje: MensajeEntrante): Promise<Decisi
         if (resultado) {
           costoDespachoInyectado = `INFORMACION DE DESPACHO CALCULADA: dirección recibida, distancia al local ${resultado.distanciaKm.toFixed(1)} km, tarifa "${resultado.zona.nombre}" → ${formatearPrecio(resultado.zona.costo)}, tiempo estimado ${resultado.zona.tiempoEstimadoMin}-${resultado.zona.tiempoEstimadoMax} min.`;
         } else {
-          costoDespachoInyectado = "INFORMACION DE DESPACHO CALCULADA: dirección recibida pero no coincide con ningún rango de despacho configurado. Escalar a humano para confirmar si hacemos despacho a esa zona.";
+          costoDespachoInyectado = "INFORMACION DE DESPACHO CALCULADA: dirección recibida y geocodificada, pero está FUERA DEL ÁREA DE DESPACHO configurada. No llegamos a esa dirección. Informa al cliente con amabilidad que lamentablemente no cubrimos esa zona, sin escalar a humano.";
         }
       }
     } catch {
