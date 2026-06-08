@@ -209,14 +209,36 @@ model Promocion {
 }
 
 model ZonaDespacho {
-  id                String  @id @default(cuid())
+  id                String   @id @default(cuid())
   nombre            String
   costo             Int
-  tiempoEstimadoMin Int     @map("tiempo_estimado_min")
-  tiempoEstimadoMax Int     @map("tiempo_estimado_max")
-  activa            Boolean @default(true)
+  tiempoEstimadoMin Int      @map("tiempo_estimado_min")
+  tiempoEstimadoMax Int      @map("tiempo_estimado_max")
+  activa            Boolean  @default(true)
+  distanciaMinKm    Float?   @map("distancia_min_km")
+  distanciaMaxKm    Float?   @map("distancia_max_km")
 
   @@map("zonas_despacho")
+}
+
+model ConfiguracionRestaurante {
+  id        String  @id @default("restaurante")
+  direccion String?
+  latitud   Float?
+  longitud  Float?
+
+  @@map("configuracion_restaurante")
+}
+
+model DireccionGeocacheada {
+  id            String   @id @default(cuid())
+  hashTexto     String   @unique @map("hash_texto")
+  textoOriginal String   @map("texto_original")
+  latitud       Float
+  longitud      Float
+  creadoEn      DateTime @default(now()) @map("creado_en")
+
+  @@map("direcciones_geocacheadas")
 }
 
 model HorarioAtencion {

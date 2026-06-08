@@ -22,6 +22,8 @@ type ZonaCatalogo = {
   costo: number;
   tiempoEstimadoMin: number;
   tiempoEstimadoMax: number;
+  distanciaMinKm?: number | null;
+  distanciaMaxKm?: number | null;
 };
 
 type HorarioCatalogo = {
@@ -843,7 +845,12 @@ export function serializarContextoNegocio(contexto: ContextoNegocio) {
     .join("\n");
 
   const zonas = contexto.zonasDespacho
-    .map((z) => `- ${z.nombre}: despacho ${formatearPrecio(z.costo)}, estimado ${z.tiempoEstimadoMin}-${z.tiempoEstimadoMax} min`)
+    .map((z) => {
+      const rango = z.distanciaMinKm != null && z.distanciaMaxKm != null
+        ? ` (${z.distanciaMinKm}-${z.distanciaMaxKm} km)`
+        : "";
+      return `- ${z.nombre}${rango}: despacho ${formatearPrecio(z.costo)}, estimado ${z.tiempoEstimadoMin}-${z.tiempoEstimadoMax} min`;
+    })
     .join("\n");
 
   const pagos = contexto.mediosPago

@@ -7,6 +7,8 @@ import {
   serializarContextoNegocio
 } from "@/lib/catalogo";
 import { obtenerConfiguracionComercial } from "@/lib/configuracion-comercial";
+import { calcularCostoDespacho } from "@/lib/geocodificacion";
+import { prisma } from "@/lib/prisma";
 
 export const mensajeEntranteSchema = z.object({
   canal: z.enum(["whatsapp", "instagram", "facebook"]),
@@ -413,7 +415,11 @@ Reglas:
 - Si el cliente declara alergia o intolerancia, requiereHumano debe ser true y decisionSeguridad "escalar_a_humano"
 - Para venta, recomienda 1 a 3 opciones concretas del catalogo y haz una pregunta de cierre
 - Para reclamos, pide nombre y numero de pedido
-- En Instagram y Facebook NO tomes pedidos, NO pidas direccion, NO cierres venta, NO prometas adjuntar PDF/catalogo y NO coordines delivery/retiro. Esos canales son solo para derivar a WhatsApp/sitio web, resolver dudas generales, campañas, noticias, informacion y marketing.`;
+- En Instagram y Facebook NO tomes pedidos, NO pidas direccion, NO cierres venta, NO prometas adjuntar PDF/catalogo y NO coordines delivery/retiro. Esos canales son solo para derivar a WhatsApp/sitio web, resolver dudas generales, campañas, noticias, informacion y marketing.
+- Para preguntas de costo de despacho sin dirección: muestra los rangos de zonas que aparezcan en el contexto (ej: "hasta 3 km $2.000, hasta 7 km $3.500") y luego pregunta la dirección del cliente
+- Si el contexto incluye "INFORMACION DE DESPACHO CALCULADA": usa exactamente esos datos para informar el costo ("Para esa dirección el despacho es $X, aprox Y km, tiempo estimado Z-W min"). Pregunta si confirma o si necesita algo más
+- Si "INFORMACION DE DESPACHO CALCULADA" dice que la dirección no coincide con ningún rango: informa que no puedes calcular el costo exacto para esa zona y pon requiereHumano: true para que el equipo confirme
+- Nunca inventes un costo de despacho. Solo usa datos del contexto o de INFORMACION DE DESPACHO CALCULADA`;
 
 let openaiClient: OpenAI | null = null;
 
@@ -564,6 +570,38 @@ function aplicarReglasNegocioLocales(decision: DecisionAgente, mensaje: MensajeE
   };
 }
 
+function ultimoMensajeAgentePidioDireccion(
+  historial: MensajeEntrante["historial"]
+): boolean {
+  if (!historial || historial.length === 0) return false;
+  const ultimoAgente = [...historial].reverse().find((h) => h.rol === "agente");
+  if (!ultimoAgente) return false;
+  const t = ultimoAgente.texto.toLowerCase();
+  return t.includes("dirección") || t.includes("direccion") || t.includes("¿a qué") || t.includes("a qué dirección");
+}
+
+function pareceDireccion(texto: string): boolean {
+  const n = texto
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "");
+  const tieneCalle =
+    /\b(av|avenida|calle|pasaje|camino|ruta|psje|pje|blvd)\b.*\d+/.test(n) ||
+    /\d+\s*,?\s*(depto|dpto|of|piso|casa|local)\b/.test(n);
+  const comunas = [
+    "providencia", "nunoa", "santiago", "maipu", "las condes", "vitacura",
+    "la florida", "macul", "san miguel", "estacion central", "cerrillos",
+    "pudahuel", "quilicura", "lo barnechea", "la reina", "penalolen",
+    "san joaquin", "pedro aguirre cerda", "lo espejo", "la cisterna",
+    "el bosque", "san ramon", "la pintana", "puente alto", "pirque",
+    "san bernardo", "buin", "paine", "colina", "lampa", "tiltil",
+    "recoleta", "independencia", "conchalí", "conchali", "renca", "huechuraba"
+  ];
+  const tieneComuna = comunas.some((c) => n.includes(c));
+  const pareceCalleNumero = /\d{2,5}/.test(n) && n.split(/\s+/).length >= 3;
+  return tieneCalle || tieneComuna || pareceCalleNumero;
+}
+
 export async function generarRespuesta(mensaje: MensajeEntrante): Promise<DecisionAgente> {
   const openai = getOpenAI();
   const [contexto, configComercial] = await Promise.all([
@@ -579,6 +617,37 @@ export async function generarRespuesta(mensaje: MensajeEntrante): Promise<Decisi
   const catalogoVisual = canalPermiteCatalogoVisual && reglaCatalogoVisualActiva && consultaCatalogo
     ? configComercial?.imagenes.find((img) => img.prioridadEnvio) ?? null
     : null;
+
+  let costoDespachoInyectado: string | null = null;
+  if (
+    process.env.GOOGLE_MAPS_API_KEY &&
+    mensaje.canal === "whatsapp" &&
+    ultimoMensajeAgentePidioDireccion(mensaje.historial) &&
+    pareceDireccion(mensaje.texto)
+  ) {
+    try {
+      const [restaurante, zonasConKm] = await Promise.all([
+        prisma.configuracionRestaurante.findUnique({ where: { id: "restaurante" } }),
+        prisma.zonaDespacho.findMany({ where: { activa: true, distanciaMinKm: { not: null }, distanciaMaxKm: { not: null } } })
+      ]);
+      if (restaurante?.latitud && restaurante?.longitud && zonasConKm.length > 0) {
+        const resultado = await calcularCostoDespacho(
+          mensaje.texto,
+          restaurante.latitud,
+          restaurante.longitud,
+          zonasConKm as Parameters<typeof calcularCostoDespacho>[3],
+          process.env.GOOGLE_MAPS_API_KEY
+        );
+        if (resultado) {
+          costoDespachoInyectado = `INFORMACION DE DESPACHO CALCULADA: dirección recibida, distancia al local ${resultado.distanciaKm.toFixed(1)} km, tarifa "${resultado.zona.nombre}" → ${formatearPrecio(resultado.zona.costo)}, tiempo estimado ${resultado.zona.tiempoEstimadoMin}-${resultado.zona.tiempoEstimadoMax} min.`;
+        } else {
+          costoDespachoInyectado = "INFORMACION DE DESPACHO CALCULADA: dirección recibida pero no coincide con ningún rango de despacho configurado. Escalar a humano para confirmar si hacemos despacho a esa zona.";
+        }
+      }
+    } catch {
+      // fail silently — el bot continúa sin precio calculado
+    }
+  }
 
   function aplicarCatalogoVisual(decision: DecisionAgente): DecisionAgente {
     if (!catalogoVisual || decision.requiereHumano) return decision;
@@ -635,8 +704,9 @@ export async function generarRespuesta(mensaje: MensajeEntrante): Promise<Decisi
       `Catalogo visual prioritario: ${catalogoVisual ? `disponible (${catalogoVisual.tipo}: ${catalogoVisual.nombre})` : "no disponible"}`,
       "",
       "Contexto de catalogo disponible:",
-      serializarContextoNegocio(contexto)
-    ].join("\n");
+      serializarContextoNegocio(contexto),
+      costoDespachoInyectado ? `\n${costoDespachoInyectado}` : ""
+    ].filter(Boolean).join("\n");
 
     // Historial como turnos reales de conversación
     const historialMsgs: { role: "user" | "assistant"; content: string }[] = (mensaje.historial ?? [])

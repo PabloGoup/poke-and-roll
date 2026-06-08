@@ -9,12 +9,14 @@ import {
   ChefHat,
   FileText,
   ImagePlus,
+  MapPin,
   MessageSquareText,
   Plus,
   Save,
   Sparkles,
   Star,
   Trash2,
+  Truck,
   Utensils
 } from "lucide-react";
 
@@ -46,6 +48,27 @@ type ImagenCatalogo = {
   prioridadEnvio: boolean;
   activo: boolean;
 };
+
+type TarifaEditable = {
+  id: string;
+  nombre: string;
+  distanciaMinKm: number;
+  distanciaMaxKm: number;
+  costoPesos: number;
+  tiempoMinMin: number;
+  tiempoMaxMin: number;
+  activa: boolean;
+};
+
+type ConfigRestaurante = {
+  direccion: string;
+  latitud: number | null;
+  longitud: number | null;
+};
+
+function formatCLP(n: number) {
+  return new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(n);
+}
 
 const accionesIniciales: AccionComercial[] = [
   {
@@ -137,6 +160,10 @@ export function CommercialConfig() {
   const [items, setItems] = useState(itemsIniciales);
   const [imagenes, setImagenes] = useState<ImagenCatalogo[]>([]);
   const [nuevoItem, setNuevoItem] = useState<Partial<ItemEditable>>({ tipo: "promocion", activo: true });
+  const [tarifas, setTarifas] = useState<TarifaEditable[]>([]);
+  const [restaurante, setRestaurante] = useState<ConfigRestaurante>({ direccion: "", latitud: null, longitud: null });
+  const [nuevaTarifa, setNuevaTarifa] = useState<Partial<TarifaEditable>>({ activa: true, distanciaMinKm: 0 });
+  const [savingTarifas, setSavingTarifas] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -152,8 +179,11 @@ export function CommercialConfig() {
   async function cargarConfiguracion() {
     setLoading(true);
     try {
-      const res = await fetch("/api/configuracion-comercial", { cache: "no-store" });
-      const data = await res.json();
+      const [resConfig, resTarifas] = await Promise.all([
+        fetch("/api/configuracion-comercial", { cache: "no-store" }),
+        fetch("/api/configuracion-comercial/tarifas", { cache: "no-store" })
+      ]);
+      const [data, dataTarifas] = await Promise.all([resConfig.json(), resTarifas.json()]);
       if (!data.ok) return;
 
       setAcciones(data.config.reglas.map((regla: AccionComercial) => ({
@@ -172,8 +202,70 @@ export function CommercialConfig() {
         ...img,
         activo: img.activo ?? true
       })));
+      if (dataTarifas.ok) {
+        setTarifas(dataTarifas.tarifas ?? []);
+        if (dataTarifas.restaurante) {
+          setRestaurante({
+            direccion: dataTarifas.restaurante.direccion ?? "",
+            latitud: dataTarifas.restaurante.latitud ?? null,
+            longitud: dataTarifas.restaurante.longitud ?? null
+          });
+        }
+      }
     } finally {
       setLoading(false);
+    }
+  }
+
+  function agregarTarifa() {
+    const nombre = nuevaTarifa.nombre?.trim();
+    if (!nombre || nuevaTarifa.distanciaMaxKm == null || nuevaTarifa.costoPesos == null) return;
+    const distanciaMaxKm = nuevaTarifa.distanciaMaxKm;
+    const costoPesos = nuevaTarifa.costoPesos;
+    setTarifas((prev) => [
+      ...prev,
+      {
+        id: Date.now().toString(),
+        nombre,
+        distanciaMinKm: nuevaTarifa.distanciaMinKm ?? 0,
+        distanciaMaxKm,
+        costoPesos,
+        tiempoMinMin: nuevaTarifa.tiempoMinMin ?? 30,
+        tiempoMaxMin: nuevaTarifa.tiempoMaxMin ?? 45,
+        activa: nuevaTarifa.activa ?? true
+      }
+    ]);
+    setNuevaTarifa({ activa: true, distanciaMinKm: 0 });
+  }
+
+  function toggleTarifa(id: string) {
+    setTarifas((prev) => prev.map((t) => t.id === id ? { ...t, activa: !t.activa } : t));
+  }
+
+  function eliminarTarifa(id: string) {
+    setTarifas((prev) => prev.filter((t) => t.id !== id));
+  }
+
+  async function guardarTarifas() {
+    setSavingTarifas(true);
+    try {
+      const res = await fetch("/api/configuracion-comercial/tarifas", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tarifas, restaurante })
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error ?? "Error guardando tarifas");
+      if (data.restaurante?.latitud) {
+        setRestaurante((prev) => ({ ...prev, latitud: data.restaurante.latitud, longitud: data.restaurante.longitud }));
+        setStatus("Tarifas guardadas y dirección geocodificada.");
+      } else {
+        setStatus("Tarifas guardadas.");
+      }
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : "Error guardando tarifas");
+    } finally {
+      setSavingTarifas(false);
     }
   }
 
@@ -447,6 +539,96 @@ export function CommercialConfig() {
             </article>
           ))}
         </div>
+      </div>
+
+      <div className="commercial-block">
+        <div className="commercial-block-head">
+          <div>
+            <span>Despacho a domicilio</span>
+            <h3>Tarifas por distancia</h3>
+          </div>
+          <button className="ghost-button" disabled={savingTarifas} onClick={guardarTarifas} type="button">
+            <Save size={14} /> {savingTarifas ? "Guardando..." : "Guardar tarifas"}
+          </button>
+        </div>
+
+        <div style={{ marginBottom: 12, display: "flex", gap: 8, alignItems: "center" }}>
+          <MapPin size={14} style={{ flexShrink: 0, color: "var(--muted)" }} />
+          <input
+            placeholder="Dirección del restaurante (se geocodificará al guardar)"
+            value={restaurante.direccion}
+            onChange={(e) => setRestaurante((prev) => ({ ...prev, direccion: e.target.value }))}
+            style={{ flex: 1, height: 36, border: "1px solid var(--line)", borderRadius: "var(--radius-sm)", background: "var(--surface-2)", padding: "0 10px", fontSize: 13, color: "var(--text)" }}
+          />
+          {restaurante.latitud != null && (
+            <span style={{ fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" }}>
+              {restaurante.latitud.toFixed(4)}, {restaurante.longitud?.toFixed(4)}
+            </span>
+          )}
+        </div>
+
+        <div className="quick-edit-form" style={{ gridTemplateColumns: "1.4fr 70px 70px 90px 60px 60px auto" }}>
+          <input
+            placeholder="Nombre (ej: Zona centro)"
+            value={nuevaTarifa.nombre ?? ""}
+            onChange={(e) => setNuevaTarifa((prev) => ({ ...prev, nombre: e.target.value }))}
+          />
+          <input
+            type="number" placeholder="Min km" min={0} step={0.5}
+            value={nuevaTarifa.distanciaMinKm ?? ""}
+            onChange={(e) => setNuevaTarifa((prev) => ({ ...prev, distanciaMinKm: parseFloat(e.target.value) || 0 }))}
+          />
+          <input
+            type="number" placeholder="Max km" min={0} step={0.5}
+            value={nuevaTarifa.distanciaMaxKm ?? ""}
+            onChange={(e) => setNuevaTarifa((prev) => ({ ...prev, distanciaMaxKm: parseFloat(e.target.value) || 0 }))}
+          />
+          <input
+            type="number" placeholder="Costo $" min={0} step={100}
+            value={nuevaTarifa.costoPesos ?? ""}
+            onChange={(e) => setNuevaTarifa((prev) => ({ ...prev, costoPesos: parseInt(e.target.value) || 0 }))}
+          />
+          <input
+            type="number" placeholder="T.min" min={0}
+            value={nuevaTarifa.tiempoMinMin ?? ""}
+            onChange={(e) => setNuevaTarifa((prev) => ({ ...prev, tiempoMinMin: parseInt(e.target.value) || 0 }))}
+          />
+          <input
+            type="number" placeholder="T.max" min={0}
+            value={nuevaTarifa.tiempoMaxMin ?? ""}
+            onChange={(e) => setNuevaTarifa((prev) => ({ ...prev, tiempoMaxMin: parseInt(e.target.value) || 0 }))}
+          />
+          <button className="primary-button" onClick={agregarTarifa} type="button">
+            <Plus size={14} /> Agregar
+          </button>
+        </div>
+
+        {tarifas.length === 0 ? (
+          <div style={{ padding: "18px 0", textAlign: "center", color: "var(--muted)", fontSize: 13 }}>
+            <Truck size={22} style={{ marginBottom: 6, opacity: 0.4 }} />
+            <p>Aún no hay tarifas configuradas. Agrega rangos de km con su costo de despacho.</p>
+          </div>
+        ) : (
+          <div className="quick-edit-list">
+            {tarifas.map((t) => (
+              <article className="quick-edit-item" key={t.id}>
+                <div>
+                  <span>tarifa km</span>
+                  <strong>{t.nombre}</strong>
+                  <p>{t.distanciaMinKm}–{t.distanciaMaxKm} km · {t.tiempoMinMin}-{t.tiempoMaxMin} min</p>
+                </div>
+                <strong className="quick-price">{formatCLP(t.costoPesos)}</strong>
+                <label className="mini-toggle">
+                  <input checked={t.activa} onChange={() => toggleTarifa(t.id)} type="checkbox" />
+                  Activa
+                </label>
+                <button className="icon-button" onClick={() => eliminarTarifa(t.id)} type="button">
+                  <Trash2 size={12} />
+                </button>
+              </article>
+            ))}
+          </div>
+        )}
       </div>
 
       {status && <div className="status-banner">{status}</div>}

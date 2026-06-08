@@ -20,6 +20,23 @@ export type ItemComercialInput = {
   activo: boolean;
 };
 
+export type TarifaDespachoInput = {
+  id?: string;
+  nombre: string;
+  distanciaMinKm: number;
+  distanciaMaxKm: number;
+  costoPesos: number;
+  tiempoMinMin: number;
+  tiempoMaxMin: number;
+  activa: boolean;
+};
+
+export type ConfiguracionRestauranteInput = {
+  direccion: string;
+  latitud?: number | null;
+  longitud?: number | null;
+};
+
 export type CatalogoVisualInput = {
   id?: string;
   nombre: string;
@@ -149,16 +166,54 @@ export async function asegurarReglasComerciales() {
 export async function obtenerConfiguracionComercial() {
   await asegurarReglasComerciales();
 
-  const [reglas, items, imagenes, catalogoPdf] = await Promise.all([
+  const [reglas, items, imagenes, catalogoPdf, tarifas, restaurante] = await Promise.all([
     prisma.reglaComercialAgente.findMany({ orderBy: [{ prioridad: "asc" }, { titulo: "asc" }] }),
     prisma.itemComercialDestacado.findMany({ orderBy: { creadoEn: "desc" } }),
     prisma.catalogoVisualAgente.findMany({ where: { activo: true, NOT: { storagePath: { startsWith: "local:" } } }, orderBy: [{ prioridadEnvio: "desc" }, { creadoEn: "desc" }] }),
-    obtenerCatalogoPdfDocs()
+    obtenerCatalogoPdfDocs(),
+    prisma.zonaDespacho.findMany({ where: { activa: true }, orderBy: { distanciaMinKm: "asc" } }),
+    prisma.configuracionRestaurante.findUnique({ where: { id: "restaurante" } })
   ]);
 
   const catalogos = catalogoPdf
     ? [catalogoPdf, ...imagenes.map((img) => ({ ...img, prioridadEnvio: false }))]
     : imagenes;
 
-  return { reglas, items, imagenes: catalogos };
+  return { reglas, items, imagenes: catalogos, tarifas, restaurante };
+}
+
+export async function guardarTarifasDespacho(
+  tarifas: TarifaDespachoInput[],
+  restaurante: ConfiguracionRestauranteInput
+): Promise<void> {
+  await prisma.zonaDespacho.deleteMany();
+
+  if (tarifas.length > 0) {
+    await prisma.zonaDespacho.createMany({
+      data: tarifas.map((t) => ({
+        nombre: t.nombre,
+        costo: t.costoPesos,
+        tiempoEstimadoMin: t.tiempoMinMin,
+        tiempoEstimadoMax: t.tiempoMaxMin,
+        activa: t.activa,
+        distanciaMinKm: t.distanciaMinKm,
+        distanciaMaxKm: t.distanciaMaxKm
+      }))
+    });
+  }
+
+  await prisma.configuracionRestaurante.upsert({
+    where: { id: "restaurante" },
+    create: {
+      id: "restaurante",
+      direccion: restaurante.direccion,
+      latitud: restaurante.latitud ?? null,
+      longitud: restaurante.longitud ?? null
+    },
+    update: {
+      direccion: restaurante.direccion,
+      latitud: restaurante.latitud ?? null,
+      longitud: restaurante.longitud ?? null
+    }
+  });
 }
