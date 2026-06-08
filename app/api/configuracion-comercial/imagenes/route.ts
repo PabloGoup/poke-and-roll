@@ -102,29 +102,33 @@ async function subirSupabase(file: File, config: { url: string; key: string; buc
 }
 
 
-// POST: guarda en DB la imagen ya subida a Supabase (o sube localmente como fallback)
+// POST: recibe el archivo comprimido y lo sube a Supabase
 export async function POST(request: Request) {
   const config = supabaseConfig();
-  const body = await request.json().catch(() => null);
+  const contentType = request.headers.get("content-type") ?? "";
 
-  // Flujo directo: browser ya subió a Supabase, solo guardamos metadata
-  if (body?.publicUrl && body?.storagePath) {
-    const { publicUrl, storagePath, nombre, tipo, prioridadEnvio } = body;
-    if (prioridadEnvio) await prisma.$executeRawUnsafe('UPDATE "catalogos_visuales_agente" SET "prioridad_envio" = false');
-    const imagen = await prisma.catalogoVisualAgente.create({
-      data: {
-        nombre: nombre ?? "imagen",
-        url: publicUrl,
-        storagePath,
-        tipo: normalizarTipo(tipo ?? "catalogo"),
-        prioridadEnvio: Boolean(prioridadEnvio),
-        activo: true
-      }
-    });
-    return NextResponse.json({ ok: true, imagen, storageProvider: "supabase" });
+  // Flujo JSON: browser ya subió a Supabase, solo guardamos metadata
+  if (contentType.includes("application/json")) {
+    const body = await request.json().catch(() => null);
+    if (body?.publicUrl && body?.storagePath) {
+      const { publicUrl, storagePath, nombre, tipo, prioridadEnvio } = body;
+      if (prioridadEnvio) await prisma.$executeRawUnsafe('UPDATE "catalogos_visuales_agente" SET "prioridad_envio" = false');
+      const imagen = await prisma.catalogoVisualAgente.create({
+        data: {
+          nombre: nombre ?? "imagen",
+          url: publicUrl,
+          storagePath,
+          tipo: normalizarTipo(tipo ?? "catalogo"),
+          prioridadEnvio: Boolean(prioridadEnvio),
+          activo: true
+        }
+      });
+      return NextResponse.json({ ok: true, imagen, storageProvider: "supabase" });
+    }
+    return NextResponse.json({ ok: false, error: "Payload inválido" }, { status: 400 });
   }
 
-  // Flujo legacy: recibe el archivo (solo para compatibilidad local/dev)
+  // Flujo FormData: recibe el archivo comprimido
   const formData = await request.formData().catch(() => null);
   const file = formData?.get("file");
   const tipo = String(formData?.get("tipo") ?? "catalogo");
@@ -150,7 +154,7 @@ export async function POST(request: Request) {
     uploaded = await guardarImagenLocal(file);
   }
 
-  if (prioridadEnvio) await prisma.catalogoVisualAgente.updateMany({ data: { prioridadEnvio: false } });
+  if (prioridadEnvio) await prisma.$executeRawUnsafe('UPDATE "catalogos_visuales_agente" SET "prioridad_envio" = false');
 
   const imagen = await prisma.catalogoVisualAgente.create({
     data: {
