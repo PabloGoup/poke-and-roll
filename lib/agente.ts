@@ -45,6 +45,7 @@ const palabrasRetiro = ["retiro", "retirar", "retiro en local", "retirar en loca
 const palabrasQuitarProducto = ["sacar", "quitar", "sin", "no poner", "retirar", "omitir"];
 const palabrasAlergia = ["alergia", "alergica", "alergico", "alérgica", "alérgico", "intolerancia"];
 const palabrasCambioProducto = ["cambiar", "cambio", "cambiame", "cámbiame", "reemplazar", "reemplazame", "modificar", "sustituir", "por pollo", "por salmon", "por salmón", "por carne", "todo por"];
+const palabrasGestionPedido = ["pedido", "pedir", "comprar", "quiero", "lo quiero", "encargar", "ordenar", "confirmar", "delivery", "retiro", "retiro en local", "pasar a buscar", "direccion", "dirección"];
 
 export function clasificarIntencion(texto: string) {
   const n = texto.toLowerCase();
@@ -148,6 +149,84 @@ function esSolicitudCatalogoVisual(texto: string) {
   if (preguntaEspecifica && !pideCatalogoCompleto && !pidePromociones && !pidePrecios) return false;
 
   return pideCatalogoCompleto || pidePromociones || pidePrecios || pideVistaGeneral;
+}
+
+function esCanalSocialDerivacion(canal: MensajeEntrante["canal"]) {
+  return canal === "instagram" || canal === "facebook";
+}
+
+function enlaceWhatsappPedidos() {
+  return process.env.WHATSAPP_PEDIDOS_URL?.trim()
+    || process.env.NEXT_PUBLIC_WHATSAPP_PEDIDOS_URL?.trim()
+    || "https://wa.me/56940999386";
+}
+
+function enlaceSitioPedidos() {
+  return process.env.SITIO_PEDIDOS_URL?.trim()
+    || process.env.NEXT_PUBLIC_SITIO_PEDIDOS_URL?.trim()
+    || "";
+}
+
+function textoCanalesPedido() {
+  const whatsapp = enlaceWhatsappPedidos();
+  const sitio = enlaceSitioPedidos();
+  return sitio
+    ? `WhatsApp: ${whatsapp} o sitio web: ${sitio}`
+    : `WhatsApp: ${whatsapp}`;
+}
+
+function esSolicitudGestionPedido(texto: string) {
+  const normalizado = normalizar(texto);
+  return palabrasGestionPedido.some((p) => normalizado.includes(normalizar(p)));
+}
+
+function limpiarCierrePedidoEnCanalSocial(respuesta: string) {
+  return respuesta
+    .replace(/¿Lo quieres para delivery o retiro\?/gi, `Para pedir, escríbenos por ${textoCanalesPedido()}.`)
+    .replace(/¿Quieres dejar un pedido[^?]*\?/gi, `Para pedidos, escríbenos por ${textoCanalesPedido()}.`)
+    .replace(/¿A qué dirección sería\?/gi, `Para coordinar dirección y pago, escríbenos por ${textoCanalesPedido()}.`)
+    .replace(/¿A qué dirección necesitas el pedido\?/gi, `Para coordinar dirección y pago, escríbenos por ${textoCanalesPedido()}.`)
+    .replace(/te ayudo a armar el pedido/gi, "te puedo orientar con dudas generales")
+    .replace(/dejamos el pedido armado/gi, "te derivamos para confirmar por WhatsApp")
+    .replace(/te indico el total antes de confirmar/gi, "la confirmación se realiza por WhatsApp o sitio web");
+}
+
+function aplicarPoliticaCanalSocial(decision: DecisionAgente, mensaje: MensajeEntrante): DecisionAgente {
+  if (!esCanalSocialDerivacion(mensaje.canal)) return decision;
+
+  const pideCatalogo = esSolicitudCatalogoCompleto(mensaje.texto) || esSolicitudCatalogoVisual(mensaje.texto);
+  const quiereGestionarPedido = esSolicitudGestionPedido(mensaje.texto);
+  const canalesPedido = textoCanalesPedido();
+
+  if (pideCatalogo) {
+    return {
+      ...decision,
+      agente: "Atencion al Cliente",
+      intencion: "consulta",
+      requiereHumano: false,
+      decisionSeguridad: "aprobado",
+      respuesta: `Por este canal no enviamos catálogo ni tomamos pedidos. Con gusto puedo resolver dudas generales por aquí; para ver el menú completo o comprar, escríbenos por ${canalesPedido}.`,
+      catalogoVisual: null
+    };
+  }
+
+  if (quiereGestionarPedido && decision.intencion === "venta") {
+    return {
+      ...decision,
+      agente: "Atencion al Cliente",
+      intencion: "consulta",
+      requiereHumano: false,
+      decisionSeguridad: "aprobado",
+      respuesta: `Por Instagram y Facebook no gestionamos pedidos. Puedo resolver dudas generales por aquí, pero para comprar o coordinar retiro/delivery escríbenos por ${canalesPedido}.`,
+      catalogoVisual: null
+    };
+  }
+
+  return {
+    ...decision,
+    respuesta: limpiarCierrePedidoEnCanalSocial(decision.respuesta),
+    catalogoVisual: null
+  };
 }
 
 function esSolicitudCatalogoCompleto(texto: string) {
@@ -333,7 +412,8 @@ Reglas:
 - Si el cliente quiere cambiar envoltura, el cambio cuesta $1.000. No trabajamos envuelto en salmón
 - Si el cliente declara alergia o intolerancia, requiereHumano debe ser true y decisionSeguridad "escalar_a_humano"
 - Para venta, recomienda 1 a 3 opciones concretas del catalogo y haz una pregunta de cierre
-- Para reclamos, pide nombre y numero de pedido`;
+- Para reclamos, pide nombre y numero de pedido
+- En Instagram y Facebook NO tomes pedidos, NO pidas direccion, NO cierres venta, NO prometas adjuntar PDF/catalogo y NO coordines delivery/retiro. Esos canales son solo para derivar a WhatsApp/sitio web, resolver dudas generales, campañas, noticias, informacion y marketing.`;
 
 let openaiClient: OpenAI | null = null;
 
@@ -492,10 +572,11 @@ export async function generarRespuesta(mensaje: MensajeEntrante): Promise<Decisi
   ]);
   const respuestaFallback = redactarRespuestaBase(mensaje, contexto);
   const reglaCatalogoVisualActiva = configComercial?.reglas.some((r) => r.id === "catalogo-visual" && r.activa);
+  const canalPermiteCatalogoVisual = mensaje.canal === "whatsapp";
   // Adjuntar catalogo solo cuando el cliente pide carta/menu/precios/promos de forma explicita.
   // Consultas de recomendacion ("recomiendame rolls en palta") deben responder con opciones concretas, sin PDF.
   const consultaCatalogo = esSolicitudCatalogoVisual(mensaje.texto);
-  const catalogoVisual = reglaCatalogoVisualActiva && consultaCatalogo
+  const catalogoVisual = canalPermiteCatalogoVisual && reglaCatalogoVisualActiva && consultaCatalogo
     ? configComercial?.imagenes.find((img) => img.prioridadEnvio) ?? null
     : null;
 
@@ -536,10 +617,11 @@ export async function generarRespuesta(mensaje: MensajeEntrante): Promise<Decisi
 
   function prepararDecisionLocal(decision: DecisionAgente) {
     const conReglas = aplicarReglasNegocioLocales(decision, mensaje);
-    return {
+    const preparada = {
       ...conReglas,
       respuesta: sanitizarTono(conReglas.respuesta, Boolean(catalogoVisual))
     };
+    return aplicarPoliticaCanalSocial(preparada, mensaje);
   }
 
   if (!openai) {
@@ -598,7 +680,7 @@ export async function generarRespuesta(mensaje: MensajeEntrante): Promise<Decisi
       ? aplicarSoloReglasSeguridad(decisionBase, mensaje)
       : aplicarReglasNegocioLocales(decisionBase, mensaje);
 
-    return aplicarCatalogoVisual(decisionModelo);
+    return aplicarPoliticaCanalSocial(aplicarCatalogoVisual(decisionModelo), mensaje);
   } catch (err) {
     // OpenAI falló — usar respuesta basada en reglas + catálogo
     if (process.env.NODE_ENV === "development") {
