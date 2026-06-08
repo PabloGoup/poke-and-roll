@@ -122,10 +122,13 @@ export async function GET(request: Request) {
 
   if (!signRes.ok) {
     const err = await signRes.text().catch(() => "");
+    console.error("[Upload signed URL] Supabase error:", signRes.status, err);
     return NextResponse.json({ ok: false, error: err || `Supabase ${signRes.status}` }, { status: 500 });
   }
 
-  const { signedURL, token } = await signRes.json();
+  const signJson = await signRes.json();
+  console.log("[Upload signed URL] Supabase response:", JSON.stringify(signJson));
+  const { signedURL, token } = signJson;
   const uploadUrl = `${config.url}${signedURL}`;
   const publicUrl = `${config.url}/storage/v1/object/public/${config.bucket}/${storagePath}`;
 
