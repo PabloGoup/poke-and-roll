@@ -19,26 +19,39 @@ function storageHeaders(key: string, contentType?: string) {
   };
 }
 
+const bucketPayload = (bucket: string) => ({
+  id: bucket,
+  name: bucket,
+  public: true,
+  file_size_limit: 10 * 1024 * 1024,
+  allowed_mime_types: ["image/png", "image/jpeg", "image/webp", "application/pdf"]
+});
+
 async function asegurarBucket(config: { url: string; key: string; bucket: string }) {
-  const response = await fetch(`${config.url}/storage/v1/bucket/${config.bucket}`, {
+  const check = await fetch(`${config.url}/storage/v1/bucket/${config.bucket}`, {
     headers: storageHeaders(config.key),
     cache: "no-store"
   });
 
-  if (response.ok) return;
-  if (response.status !== 404) return;
+  if (check.status === 404) {
+    await fetch(`${config.url}/storage/v1/bucket`, {
+      method: "POST",
+      headers: storageHeaders(config.key, "application/json"),
+      body: JSON.stringify(bucketPayload(config.bucket))
+    });
+    return;
+  }
 
-  await fetch(`${config.url}/storage/v1/bucket`, {
-    method: "POST",
-    headers: storageHeaders(config.key, "application/json"),
-    body: JSON.stringify({
-      id: config.bucket,
-      name: config.bucket,
-      public: true,
-      file_size_limit: 10 * 1024 * 1024,
-      allowed_mime_types: ["image/png", "image/jpeg", "image/webp", "application/pdf"]
-    })
-  });
+  if (check.ok) {
+    const data = await check.json().catch(() => ({}));
+    if (!data.public) {
+      await fetch(`${config.url}/storage/v1/bucket/${config.bucket}`, {
+        method: "PUT",
+        headers: storageHeaders(config.key, "application/json"),
+        body: JSON.stringify(bucketPayload(config.bucket))
+      });
+    }
+  }
 }
 
 function normalizarTipo(tipo: string) {
