@@ -198,6 +198,28 @@ export function CommercialConfig() {
     setNuevoItem({ tipo: "promocion", activo: true });
   }
 
+  async function comprimirImagen(file: File, maxPx = 1400, quality = 0.88): Promise<File> {
+    if (file.type === "application/pdf") return file;
+    return new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        let { width, height } = img;
+        if (width > maxPx || height > maxPx) {
+          if (width >= height) { height = Math.round((height * maxPx) / width); width = maxPx; }
+          else { width = Math.round((width * maxPx) / height); height = maxPx; }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width; canvas.height = height;
+        canvas.getContext("2d")!.drawImage(img, 0, 0, width, height);
+        canvas.toBlob((blob) => resolve(blob ? new File([blob], file.name, { type: "image/jpeg" }) : file), "image/jpeg", quality);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+      img.src = url;
+    });
+  }
+
   async function cargarImagenes(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
     if (files.length === 0) return;
@@ -211,43 +233,16 @@ export function CommercialConfig() {
       for (const [index, file] of files.entries()) {
         const esPrioritaria = imagenes.length === 0 && index === 0;
 
-        // 1. Pedir signed URL al servidor
-        const signRes = await fetch(
-          `/api/configuracion-comercial/imagenes?nombre=${encodeURIComponent(file.name)}&mime=${encodeURIComponent(file.type)}`
-        );
-        const signData = await signRes.json();
+        const fileComprimido = await comprimirImagen(file);
 
-        if (!signRes.ok || !signData.uploadUrl) {
-          console.error("Error obteniendo signed URL:", signData);
-          continue;
-        }
+        const body = new FormData();
+        body.append("file", fileComprimido, file.name);
+        body.append("tipo", "catalogo");
+        body.append("prioridadEnvio", String(esPrioritaria));
 
-        // 2. Subir directo a Supabase desde el browser
-        const uploadRes = await fetch(signData.uploadUrl, {
-          method: "PUT",
-          headers: { "Content-Type": file.type },
-          body: file
-        });
-
-        if (!uploadRes.ok) {
-          console.error("Error subiendo a Supabase:", uploadRes.status);
-          continue;
-        }
-
-        // 3. Guardar metadata en DB
-        const saveRes = await fetch("/api/configuracion-comercial/imagenes", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            publicUrl: signData.publicUrl,
-            storagePath: signData.storagePath,
-            nombre: file.name,
-            tipo: "catalogo",
-            prioridadEnvio: esPrioritaria
-          })
-        });
-        const saveData = await saveRes.json();
-        if (saveData.ok) nuevas.push(saveData.imagen);
+        const res = await fetch("/api/configuracion-comercial/imagenes", { method: "POST", body });
+        const data = await res.json();
+        if (data.ok) nuevas.push(data.imagen);
       }
 
       setImagenes((prev) => [...nuevas, ...prev.map((img) => nuevas.some((n) => n.prioridadEnvio) ? { ...img, prioridadEnvio: false } : img)]);

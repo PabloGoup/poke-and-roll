@@ -101,40 +101,6 @@ async function subirSupabase(file: File, config: { url: string; key: string; buc
   };
 }
 
-// GET: genera una signed URL para que el browser suba directo a Supabase
-export async function GET(request: Request) {
-  const config = supabaseConfig();
-  if (!config) return NextResponse.json({ ok: false, error: "Supabase no configurado" }, { status: 500 });
-
-  const { searchParams } = new URL(request.url);
-  const nombre = searchParams.get("nombre") ?? "imagen";
-  const mimeType = searchParams.get("mime") ?? "image/png";
-
-  const extension = mimeType === "image/jpeg" ? "jpg" : mimeType === "image/webp" ? "webp" : mimeType === "application/pdf" ? "pdf" : "png";
-  const storagePath = `agente/${Date.now()}-${crypto.randomUUID()}.${extension}`;
-
-  await asegurarBucket(config);
-
-  const signRes = await fetch(`${config.url}/storage/v1/object/sign/upload/${config.bucket}/${storagePath}`, {
-    method: "POST",
-    headers: storageHeaders(config.key, "application/json"),
-    body: JSON.stringify({ expiresIn: 3600 })
-  });
-
-  if (!signRes.ok) {
-    const err = await signRes.text().catch(() => "");
-    console.error("[Upload signed URL] Supabase error:", signRes.status, err);
-    return NextResponse.json({ ok: false, error: err || `Supabase ${signRes.status}` }, { status: 500 });
-  }
-
-  const signJson = await signRes.json();
-  console.log("[Upload signed URL] Supabase response:", JSON.stringify(signJson));
-  const { signedURL, token } = signJson;
-  const uploadUrl = `${config.url}${signedURL}`;
-  const publicUrl = `${config.url}/storage/v1/object/public/${config.bucket}/${storagePath}`;
-
-  return NextResponse.json({ ok: true, uploadUrl, token, storagePath, publicUrl, nombre });
-}
 
 // POST: guarda en DB la imagen ya subida a Supabase (o sube localmente como fallback)
 export async function POST(request: Request) {
