@@ -201,7 +201,7 @@ export function CommercialConfig() {
   async function comprimirImagen(file: File, maxPx = 1400, quality = 0.88): Promise<File> {
     if (file.type === "application/pdf") return file;
     return new Promise((resolve) => {
-      const img = new Image();
+      const img = document.createElement("img");
       const url = URL.createObjectURL(file);
       img.onload = () => {
         URL.revokeObjectURL(url);
