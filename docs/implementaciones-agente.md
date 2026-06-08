@@ -315,6 +315,32 @@ Validacion:
 
 - `npm run lint`: OK con 8 warnings preexistentes en componentes no relacionados.
 
+## 26. Politica de Instagram/Facebook como canales de derivacion
+
+Fecha: 2026-06-07
+
+Decision operativa:
+
+- Instagram y Facebook no gestionan pedidos.
+- Estos canales quedan destinados a:
+  - Derivacion a WhatsApp y sitio web.
+  - Resolver dudas y consultas generales.
+  - Campañas publicitarias.
+  - Compartir noticias e informacion.
+  - Marketing.
+- La toma de pedidos se concentra en WhatsApp, sitio web y atencion presencial.
+
+Cambios realizados:
+
+- `lib/agente.ts` aplica una regla defensiva por canal:
+  - No adjunta PDF/catalogo en Instagram o Facebook.
+  - No pide direccion, pago, delivery/retiro ni confirmacion de pedido en Instagram/Facebook.
+  - Si el usuario pide menu o quiere comprar por Instagram/Facebook, deriva a WhatsApp y sitio web.
+- Se agregaron variables de derivacion:
+  - `WHATSAPP_PEDIDOS_URL=https://wa.me/56940999386`
+  - `SITIO_PEDIDOS_URL=https://pizza-and-roll.vercel.app/`
+- Se actualizo la skill `sushi-poke-roll-customer-agent` con esta politica para mantener consistencia futura.
+
 ## 25. Conexion oficial de Instagram profesional con Meta OAuth
 
 Fecha: 2026-06-03
