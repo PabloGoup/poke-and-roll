@@ -171,7 +171,7 @@ export async function obtenerConfiguracionComercial() {
     prisma.itemComercialDestacado.findMany({ orderBy: { creadoEn: "desc" } }),
     prisma.catalogoVisualAgente.findMany({ where: { activo: true, NOT: { storagePath: { startsWith: "local:" } } }, orderBy: [{ prioridadEnvio: "desc" }, { creadoEn: "desc" }] }),
     obtenerCatalogoPdfDocs(),
-    prisma.zonaDespacho.findMany({ where: { activa: true }, orderBy: { distanciaMinKm: "asc" } }),
+    prisma.zonaDespacho.findMany({ orderBy: { costo: "asc" } }),
     prisma.configuracionRestaurante.findUnique({ where: { id: "restaurante" } })
   ]);
 
@@ -186,21 +186,20 @@ export async function guardarTarifasDespacho(
   tarifas: TarifaDespachoInput[],
   restaurante: ConfiguracionRestauranteInput
 ): Promise<void> {
-  await prisma.zonaDespacho.deleteMany();
+  const zonaData = tarifas.map((t) => ({
+    nombre: t.nombre,
+    costo: t.costoPesos,
+    tiempoEstimadoMin: t.tiempoMinMin,
+    tiempoEstimadoMax: t.tiempoMaxMin,
+    activa: t.activa,
+    distanciaMinKm: t.distanciaMinKm,
+    distanciaMaxKm: t.distanciaMaxKm
+  }));
 
-  if (tarifas.length > 0) {
-    await prisma.zonaDespacho.createMany({
-      data: tarifas.map((t) => ({
-        nombre: t.nombre,
-        costo: t.costoPesos,
-        tiempoEstimadoMin: t.tiempoMinMin,
-        tiempoEstimadoMax: t.tiempoMaxMin,
-        activa: t.activa,
-        distanciaMinKm: t.distanciaMinKm,
-        distanciaMaxKm: t.distanciaMaxKm
-      }))
-    });
-  }
+  await prisma.$transaction([
+    prisma.zonaDespacho.deleteMany(),
+    prisma.zonaDespacho.createMany({ data: zonaData })
+  ]);
 
   await prisma.configuracionRestaurante.upsert({
     where: { id: "restaurante" },
