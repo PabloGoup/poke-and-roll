@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
-    "@prisma/adapter-neon": "^7.8.0",
+    "@prisma/adapter-neon": "^6.8.2",
     "@prisma/client": "^6.8.2",
     "bcryptjs": "^3.0.3",
     "eas": "^0.1.0",
