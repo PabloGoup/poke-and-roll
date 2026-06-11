@@ -48,6 +48,50 @@ export async function enviarWhatsAppTexto(params: {
   };
 }
 
+export async function enviarWhatsAppMedia(params: {
+  telefono: string;
+  tipo: "imagen" | "documento";
+  url: string;
+  caption?: string;
+  nombre?: string;
+  waToken?: string;
+  waPhoneId?: string;
+}) {
+  const accessToken = params.waToken ?? process.env.WHATSAPP_ACCESS_TOKEN;
+  const phoneNumberId = params.waPhoneId ?? process.env.WHATSAPP_PHONE_NUMBER_ID;
+
+  if (!accessToken || !phoneNumberId) {
+    return { ok: false, modo: "simulado", detalle: "Faltan credenciales WhatsApp" };
+  }
+
+  const body =
+    params.tipo === "imagen"
+      ? {
+          messaging_product: "whatsapp",
+          to: params.telefono,
+          type: "image",
+          image: { link: params.url, ...(params.caption ? { caption: params.caption } : {}) },
+        }
+      : {
+          messaging_product: "whatsapp",
+          to: params.telefono,
+          type: "document",
+          document: {
+            link: params.url,
+            ...(params.caption ? { caption: params.caption } : {}),
+            ...(params.nombre ? { filename: params.nombre } : {}),
+          },
+        };
+
+  const response = await fetch(`${GRAPH_URL}/${phoneNumberId}/messages`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  return { ok: response.ok, modo: "real", status: response.status };
+}
+
 export async function enviarInstagramTexto(params: {
   recipientId: string;
   texto: string;

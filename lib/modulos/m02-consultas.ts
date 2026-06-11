@@ -3,7 +3,7 @@
 // ============================================================
 
 import OpenAI from 'openai';
-import type { MensajeDespacho, RespuestaModulo, SesionPedidoCtx } from './types';
+import type { MensajeDespacho, MediaAEnviar, RespuestaModulo, SesionPedidoCtx } from './types';
 import { PROMPT_CONSULTAS } from './prompts/m02';
 import { consultarEstadoOrden } from '@/lib/supabase-pedidos';
 import { prisma } from '@/lib/prisma';
@@ -35,6 +35,55 @@ function getModel(): string {
   if (process.env.GEMINI_API_KEY) return 'gemini-2.5-flash';
   if (process.env.GROQ_API_KEY) return 'llama-3.3-70b-versatile';
   return 'gpt-4o-mini';
+}
+
+function normalizarTexto(t: string) {
+  return t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
+function esSolicitudCatalogoVisual(texto: string): 'menu' | 'promos' | null {
+  const n = normalizarTexto(texto);
+  const esPromos =
+    /\b(promo|promos|promocion|promociones)\b/.test(n) &&
+    /\b(que|cuales|ver|manda|envia|tienen|hay|muestrame|mostrar)\b/.test(n);
+  const esMenu =
+    /\b(menu|carta|catalogo)\b/.test(n) ||
+    n.includes('que tienen') || n.includes('que venden') || n.includes('ver el menu');
+  if (esPromos) return 'promos';
+  if (esMenu) return 'menu';
+  return null;
+}
+
+function resolverUrlPublica(url: string): string {
+  if (url.startsWith('http')) return url;
+  const base = (process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? 'https://goupsoluciones.cl').replace(/\/$/, '');
+  return `${base}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
+async function cargarImagenesCatalogo(filtro: 'menu' | 'promos'): Promise<MediaAEnviar[]> {
+  try {
+    const imagenes = await prisma.catalogoVisualAgente.findMany({
+      where: { activo: true },
+      orderBy: { creadoEn: 'asc' },
+    });
+
+    // Preferir URLs de Supabase Storage (públicas), descartar locales duplicadas
+    const supabaseImagenes = imagenes.filter(i => i.url.startsWith('http'));
+    const fuente = supabaseImagenes.length > 0 ? supabaseImagenes : imagenes;
+
+    const seleccionadas =
+      filtro === 'promos'
+        ? fuente.filter(i => normalizarTexto(i.nombre).includes('promo'))
+        : fuente;
+
+    return seleccionadas.map(img => ({
+      tipo: 'imagen' as const,
+      url: resolverUrlPublica(img.url),
+      caption: img.nombre.replace(/\.(png|jpg|jpeg|webp)$/i, '').replace(/_/g, ' '),
+    }));
+  } catch {
+    return [];
+  }
 }
 
 const ESTADOS_ORDEN: Record<string, string> = {
@@ -116,17 +165,25 @@ export async function ejecutar(
     ? `Historial reciente:\n${msg.historial.map(h => `[${h.rol === 'cliente' ? 'Cliente' : 'Agente'}]: ${h.texto}`).join('\n')}`
     : '';
 
+  // Detectar si el cliente pide el catálogo visual y cargar imágenes
+  const solicitudVisual = esSolicitudCatalogoVisual(msg.texto);
+  const mediaAEnviar = solicitudVisual ? await cargarImagenesCatalogo(solicitudVisual) : [];
+
   const contexto = [
     infoLocal,
     infoEstadoOrden,
     historialTexto,
+    mediaAEnviar.length > 0
+      ? `(Se adjuntarán ${mediaAEnviar.length} imagen(es) del catálogo visual antes de este mensaje)`
+      : '',
     `Mensaje del cliente: "${msg.texto}"`,
   ].filter(Boolean).join('\n\n');
 
   if (!openai) {
-    return {
-      respuesta: infoEstadoOrden || 'Puedo ayudarte con horarios, zonas de despacho y medios de pago. ¿Qué necesitas saber?',
-    };
+    const respuestaFallback = solicitudVisual
+      ? 'Te muestro el catálogo. ¿Qué te llama la atención?'
+      : (infoEstadoOrden || 'Puedo ayudarte con horarios, zonas de despacho y medios de pago. ¿Qué necesitas saber?');
+    return { respuesta: respuestaFallback, mediaAEnviar: mediaAEnviar.length > 0 ? mediaAEnviar : undefined };
   }
 
   try {
@@ -152,6 +209,7 @@ export async function ejecutar(
       ...(parsed.moduloSiguiente
         ? { moduloSiguiente: parsed.moduloSiguiente as RespuestaModulo['moduloSiguiente'] }
         : {}),
+      ...(mediaAEnviar.length > 0 ? { mediaAEnviar } : {}),
     };
   } catch {
     return FALLBACK;

@@ -90,11 +90,19 @@ export interface DireccionCliente {
 
 // --------------- Respuesta de cada módulo -------------------
 
+export interface MediaAEnviar {
+  tipo: "imagen" | "documento";
+  url: string;
+  caption?: string;
+  nombre?: string;
+}
+
 export interface RespuestaModulo {
   respuesta: string;                         // texto que se envía al cliente por WhatsApp
   moduloSiguiente?: ModuloAgente;            // transición explícita
   actualizarSesion?: Partial<SesionPedidoCtx>;
   requiereHumano?: boolean;
+  mediaAEnviar?: MediaAEnviar[];            // imágenes/docs a enviar antes del texto
   catalogoVisual?: {
     nombre: string;
     url: string;

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { enviarWhatsAppTexto, verificarWebhook } from "@/lib/meta";
+import { enviarWhatsAppMedia, enviarWhatsAppTexto, verificarWebhook } from "@/lib/meta";
 import {
   guardarMensaje,
   obtenerOCrearConversacion,
@@ -158,6 +158,7 @@ export async function POST(request: Request) {
 
   let respuestaFinal: string;
   let requiereHumano = false;
+  let mediaAEnviar: { tipo: "imagen" | "documento"; url: string; caption?: string; nombre?: string }[] = [];
 
   if (guardResult.accion === "cancelar") {
     if (sesionDb) await cerrarSesionPedido(conversacion.id, "cancelada");
@@ -172,7 +173,7 @@ export async function POST(request: Request) {
     });
     const historial = mensajesRecientes
       .reverse()
-      .filter((m) => m.texto !== texto) // excluir el mensaje actual (ya guardado)
+      .filter((m) => m.texto !== texto)
       .map((m) => ({
         rol: m.direccion === "entrante" ? ("cliente" as const) : ("agente" as const),
         texto: m.texto,
@@ -194,6 +195,7 @@ export async function POST(request: Request) {
     const resultado = await despacharModulo(mensajeDespacho, sesionCtx);
     respuestaFinal = resultado.respuesta;
     requiereHumano = resultado.requiereHumano ?? false;
+    if (resultado.mediaAEnviar) mediaAEnviar = resultado.mediaAEnviar;
 
     // Aplicar actualizaciones de sesión
     const updates: Record<string, unknown> = {};
@@ -223,7 +225,23 @@ export async function POST(request: Request) {
     },
   });
 
-  // Enviar respuesta al cliente
+  const mediaItems = mediaAEnviar;
+
+  if (Array.isArray(mediaItems) && mediaItems.length > 0) {
+    for (const media of mediaItems as { tipo: "imagen" | "documento"; url: string; caption?: string; nombre?: string }[]) {
+      await enviarWhatsAppMedia({
+        telefono,
+        tipo: media.tipo,
+        url: media.url,
+        caption: media.caption,
+        nombre: media.nombre,
+        waToken: local?.waToken ?? undefined,
+        waPhoneId: local?.waPhoneId ?? undefined,
+      }).catch(() => null); // fail silently por imagen individual
+    }
+  }
+
+  // Enviar texto de respuesta
   if (respuestaFinal) {
     const envio = await enviarWhatsAppTexto({
       telefono,
