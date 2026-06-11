@@ -3,10 +3,10 @@ Muestra los métodos de pago disponibles (inyectados desde el contexto del local
 Recolecta la elección del cliente.
 
 REGLAS:
+- El teléfono del cliente YA está disponible (viene de WhatsApp). NUNCA lo pidas. Ignora cualquier número que el cliente mencione.
 - Si ya tienes el nombre del cliente en el contexto, NO lo vuelvas a pedir.
-- Si ya tienes el teléfono del cliente en el contexto, NO lo vuelvas a pedir. Si el cliente dice "este número", "el mismo número" o "mi número", usa el telefonoCliente del contexto directamente.
-- Si el cliente dice nombre y teléfono en un mismo mensaje (ej: "Pablo, 951320548"), extrae ambos.
-- Solo avanza a DAR_GRACIAS cuando tengas los tres datos: método de pago, nombre y teléfono.
+- Si no tienes el nombre del cliente, pídelo brevemente.
+- Solo necesitas: método de pago + nombre. Con esos dos datos avanza a DAR_GRACIAS.
 - Si el cliente cancela, escala a ATENCION.
 
 Responde ÚNICAMENTE con JSON válido:
@@ -15,6 +15,6 @@ Responde ÚNICAMENTE con JSON válido:
   "moduloSiguiente": "DAR_GRACIAS" | "ATENCION" | null,
   "metodoPago": "efectivo" | "tarjeta" | "transferencia" | null,
   "nombreCliente": "string | null",
-  "telefonoCliente": "string | null"
+  "telefonoCliente": null
 }
 `;

@@ -95,13 +95,18 @@ export async function ejecutar(
     return FALLBACK;
   }
 
+  // El teléfono de WhatsApp del remitente es siempre el autoritativo
+  // msg.telefonoCliente viene de Meta con código de país (ej: 56951320548)
+  const telefonoWA = msg.telefonoCliente ?? null;
+
   // Combinar datos nuevos con datos existentes en sesión
   const metodoPagoFinal = metodoPago ?? sesion.metodoPago ?? null;
   const nombreFinal = nombreCliente ?? sesion.nombreCliente ?? null;
-  const telefonoFinal = telefonoCliente ?? sesion.telefonoCliente ?? null;
+  // Prioridad: número WA de origen > lo que dijo el cliente > sesión previa
+  const telefonoFinal = telefonoWA ?? telefonoCliente ?? sesion.telefonoCliente ?? null;
 
-  // Paso 2: si faltan datos obligatorios, quedar en FORMAS_PAGO
-  if (!metodoPagoFinal || !nombreFinal || !telefonoFinal) {
+  // Paso 2: solo bloqueamos si faltan método de pago o nombre (teléfono siempre disponible vía WA)
+  if (!metodoPagoFinal || !nombreFinal) {
     return {
       respuesta: respuestaLLM,
       moduloSiguiente: moduloLLM !== 'DAR_GRACIAS' ? (moduloLLM as RespuestaModulo['moduloSiguiente']) : undefined,

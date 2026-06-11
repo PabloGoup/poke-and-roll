@@ -57,10 +57,17 @@ export async function POST(req: NextRequest) {
     return Response.json({ ok: true, skipped: 'not-whatsapp' });
   }
 
-  const telefono: string | null = record?.customer_phone_snapshot ?? null;
-  if (!telefono) {
+  const telefonoRaw: string | null = record?.customer_phone_snapshot ?? null;
+  if (!telefonoRaw) {
     return Response.json({ ok: true, skipped: 'no-phone' });
   }
+
+  // Normalizar teléfono chileno: si tiene 9 dígitos sin código de país, agregar 56
+  // Los clientes pueden haber escrito "951320548" en vez de "56951320548"
+  const telefonoSolo = telefonoRaw.replace(/\D/g, '');
+  const telefono = telefonoSolo.length === 9 && telefonoSolo.startsWith('9')
+    ? `56${telefonoSolo}`
+    : telefonoSolo;
 
   // Verificar si ya se envió la notificación para esta orden (idempotencia)
   const logPrevio = await prisma.logModulo.findFirst({
