@@ -74,7 +74,25 @@ export interface SesionPedidoCtx {
   externalOrderId?: string;
   externalOrderNumber?: string;
   intentosConfirmacion: number;
+  estadoConversacional?: EstadoConversacionalWA;
   ultimaActividadEn: Date;
+}
+
+export interface EstadoConversacionalWA {
+  fase?: 'inicio' | 'consulta' | 'pedido' | 'confirmacion_carrito' | 'entrega' | 'direccion' | 'pago' | 'orden_creada' | 'humano';
+  productoEnFoco?: string;
+  modificacionPendiente?: {
+    origen: string;
+    destino: string;
+    recargo: number;
+    nota: string;
+  } | null;
+  ultimaPreguntaUtil?: string;
+  intencionVisualAtendida?: string | null;
+  aclaracionPendiente?: {
+    tipo: 'producto' | 'modificacion' | 'entrega' | 'pago';
+    valor?: string;
+  } | null;
 }
 
 export interface DireccionCliente {

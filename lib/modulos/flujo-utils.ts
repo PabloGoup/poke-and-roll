@@ -41,7 +41,7 @@ export function construirResumenPedido(sesion: SesionPedidoCtx) {
 
 export function esConfirmacionExplicita(texto: string) {
   const n = normalizarTexto(texto);
-  return /^(si|sí|confirmo|confirmado|dale|ok|okay|listo|correcto|de acuerdo|va|vamos|proceda|eso es|asi esta|así está)[\s.!]*$/.test(n)
+  return /^(si|sí|sii|siii|sip|sipo|ya|yapo|ya po|confirmo|confirmado|dale|ok|oka|okay|listo|correcto|de acuerdo|va|vamos|proceda|eso es|asi esta|así está|si por favor|sí por favor)[\s.!]*$/.test(n)
     || n.includes('confirmo el pedido')
     || n.includes('esta correcto')
     || n.includes('está correcto');
@@ -56,6 +56,14 @@ export function esCierreDePedido(texto: string) {
   const n = normalizarTexto(texto);
   return n.includes('eso es todo')
     || n.includes('solo eso')
+    || n.includes('sl eso')
+    || n.includes('eso nomas')
+    || n.includes('eso no mas')
+    || n.includes('eso no más')
+    || n.includes('era eso')
+    || n.includes('seria eso')
+    || n.includes('sería eso')
+    || n.includes('nada mas por ahora')
     || n.includes('quiero solo eso')
     || n.includes('no, solo eso')
     || n.includes('no gracias, solo eso')

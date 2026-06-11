@@ -15,7 +15,27 @@ export type ModificacionDetectada = {
 };
 
 function normalizar(texto: string) {
-  return normalizarTexto(texto).replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  return normalizarTexto(texto)
+    .replace(/\b(kiero|kero|qiero|qro|qero|qer[oia]?|kier[oia]?|keria|keriaa|kerria)\b/g, 'quiero')
+    .replace(/\b(xfa|xfa|porfa|porfis|pls)\b/g, 'por favor')
+    .replace(/\b(promo30)\b/g, 'promo 30')
+    .replace(/\b(prmo|prom|prommo|promoo|promo d)\b/g, 'promo ')
+    .replace(/\b(treinta|treint|treita|30p|30pz|30ps|30 piezas|30pieza)\b/g, '30')
+    .replace(/\b(fritaz|fritas?|fritaas|frits|frita?s?|fritta?s?|frtas|frtaz|friyas?|frias?|fria?s?|frytas?|fryts?)\b/g, 'fritas')
+    .replace(/\b(mixtaz|mixtaas|mistas|mxtas|mix?tas?|mixtos?)\b/g, 'mixtas')
+    .replace(/\b(premiun|premum|premium|prem)\b/g, 'premium')
+    .replace(/\b(pokee|poques|poque|pokes?|pok|pke|gohan(?:es)?|goham|gojan|bowls?|bol)\b/g, 'poke')
+    .replace(/\b(salmon|salmonn|salmn|salman|samon|zalmon|salmón)\b/g, 'salmon')
+    .replace(/\b(camarones|camaron|camaroon|camron|cmrn|camarón)\b/g, 'camaron')
+    .replace(/\b(pollo|poyo|poyito|poio)\b/g, 'pollo')
+    .replace(/\b(kanikama|kanikma|kanikamka|kani|kanika|kanik)\b/g, 'kanikama')
+    .replace(/\b(cebollin|cebollín|cebolla china|ciboulette|cibulete|cibulet)\b/g, 'cebollin')
+    .replace(/\b(plta|palte|palta)\b/g, 'palta')
+    .replace(/\b(qeso|queso|queso crema|q crema)\b/g, 'queso')
+    .replace(/\b(kambiar|kambia|kambiame|cambi|cambia|cambiame|cámbiame|cambiar|reemplazar|reemplaza|sustituir)\b/g, 'cambiar')
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function ultimoAgente(historial?: MensajeDespacho['historial']) {
@@ -28,7 +48,7 @@ function ultimosCliente(historial?: MensajeDespacho['historial']) {
 
 function esAfirmacion(texto: string) {
   const n = normalizar(texto);
-  return /^(si|sí|sip|sipo|correcto|exacto|dale|ok|okay|ese|esa|esa misma|ese mismo)[\s.!]*$/.test(n);
+  return /^(si|sí|sii|siii|sip|sipo|ya|ya po|yapo|dale|oka|ok|okay|correcto|exacto|ese|esa|esa misma|ese mismo|la misma|el mismo)[\s.!]*$/.test(n);
 }
 
 // Tamaños de promo (parte del nombre del producto, no indican cantidad)
@@ -47,19 +67,22 @@ function cantidadDesdeTexto(texto: string, excluirNumeros?: Set<number>) {
   if (/\b(tres)\b/.test(n)) return 3;
   if (/\b(cuatro)\b/.test(n)) return 4;
   if (/\b(cinco)\b/.test(n)) return 5;
+  if (/\b(seis)\b/.test(n)) return 6;
+  if (/\b(siete)\b/.test(n)) return 7;
+  if (/\b(ocho)\b/.test(n)) return 8;
   return 1;
 }
 
 function detectarPromoComun(texto: string): ItemPedidoDetectado | null {
   const n = normalizar(texto);
-  const pidePedido = /\b(quiero|dame|agrega|agregame|anota|anotame|llevo|dejame|la de|el de|promo)\b/.test(n);
+  const pidePedido = /\b(quiero|dame|dai|dame|agrega|agregame|anota|anotame|llevo|dejame|dejai|manda|mandame|pasame|la de|el de|promo|quiero la|me das|me dai)\b/.test(n);
   if (!pidePedido && !/\b(30|40|50|70|80|100|140|200)\b/.test(n)) return null;
 
-  if (/\b30\b/.test(n) && /\b(frita|fritas|frito|fritos|friya|friyas|fria|frias)\b/.test(n)) {
+  if (/\b30\b/.test(n) && /\b(fritas)\b/.test(n)) {
     return { nombre: '30 piezas fritas', cantidad: cantidadDesdeTexto(n, TAMANOS_PROMO) };
   }
 
-  if (/\b30\b/.test(n) && /\b(mixta|mixtas|mixto|mixtos)\b/.test(n)) {
+  if (/\b30\b/.test(n) && /\b(mixtas)\b/.test(n)) {
     return { nombre: '30 piezas mixtas', cantidad: cantidadDesdeTexto(n, TAMANOS_PROMO) };
   }
 
@@ -89,14 +112,16 @@ function inferirItemDesdeAfirmacion(msg: MensajeDespacho): ItemPedidoDetectado |
 
 function detectarPokeComun(texto: string): ItemPedidoDetectado | null {
   const n = normalizar(texto);
-  if (!/\b(poke|pokes|gohan|gohans|bowl)\b/.test(n)) return null;
-  if (!/\b(quiero|dame|agrega|agregame|anota|anotame|llevo|dejame)\b/.test(n)) return null;
+  if (!/\b(poke)\b/.test(n)) return null;
+  if (!/\b(quiero|dame|me das|me dai|agrega|agregame|anota|anotame|llevo|dejame|manda|mandame|pasame)\b/.test(n)) return null;
 
   const cantidad = cantidadDesdeTexto(n);
   const notas: string[] = [];
   if (/\bsin cebollin\b/.test(n)) notas.push('uno sin cebollín');
   if (/\bsin palta\b/.test(n)) notas.push('sin palta');
   if (/\bsin queso\b/.test(n)) notas.push('sin queso crema');
+  if (/\bsin kanikama\b/.test(n)) notas.push('sin kanikama');
+  if (/\bsin camaron\b/.test(n)) notas.push('sin camarón');
 
   if (/\bsalmon\b/.test(n)) return { nombre: 'poke de salmón', cantidad, notas: notas.join(', ') || undefined };
   if (/\bpollo\b/.test(n)) return { nombre: 'poke de pollo', cantidad, notas: notas.join(', ') || undefined };
@@ -115,7 +140,7 @@ export function detectarItemPedidoDeterministico(msg: MensajeDespacho): ItemPedi
 export function detectarModificacion(texto: string): ModificacionDetectada | null {
   const n = normalizar(texto);
 
-  const cambioExplicito = n.match(/\b(?:cambiar|cambia|cambiame|reemplazar|reemplaza|sustituir)\s+(.+?)\s+(?:por|x)\s+(.+?)$/);
+  const cambioExplicito = n.match(/\b(?:cambiar)\s+(.+?)\s+(?:por|x)\s+(.+?)$/);
   if (cambioExplicito) {
     return construirModificacion(cambioExplicito[1], cambioExplicito[2]);
   }
@@ -125,7 +150,7 @@ export function detectarModificacion(texto: string): ModificacionDetectada | nul
     return construirModificacion(cambioSinVerbo[1], cambioSinVerbo[2]);
   }
 
-  if (/\b(tod[oa]s?|todo completo|entero|entera)\s+(?:con|de)\s+pollo\b/.test(n)) {
+  if (/\b(tod[oa]s?|toos|tos|toas|todo completo|entero|entera)\s+(?:con|de)?\s*pollo\b/.test(n) || /\bfull pollo\b/.test(n)) {
     return {
       origen: 'proteínas base',
       destino: 'pollo',
@@ -139,7 +164,7 @@ export function detectarModificacion(texto: string): ModificacionDetectada | nul
 
 function construirModificacion(origenRaw: string, destinoRaw: string): ModificacionDetectada | null {
   const origen = origenRaw
-    .replace(/\b(el|la|los|las|y|tambien|también)\b/g, ' ')
+    .replace(/\b(el|la|los|las|y|tambien|también|mas|más|con)\b/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
   const destino = destinoRaw.trim();

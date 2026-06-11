@@ -636,3 +636,108 @@ Objetivo:
   - "Quiero todos con pollo"
   - "El kanikama y el camarón por pollo"
   - "cambiar kanikama x pollo"
+
+## 12. Actualización 2026-06-11 — WhatsApp vuelve a agente único
+
+### 12.1 Cambio estructural
+
+WhatsApp dejó de usar `despacharModulo()` como entrada principal. Se agregó `procesarWhatsAppAgenteUnico()` para que una sola capa conversacional maneje atención, ventas, carrito, entrega, pago, reclamos y postventa.
+
+Los módulos M01-M13 se mantienen en el código como compatibilidad y rollback, pero ya no son el cerebro del webhook WhatsApp.
+
+### 12.2 Implementación
+
+- `lib/whatsapp/agente-unico-atencion.ts`
+  - Nuevo motor único de atención.
+  - Resuelve carta/promociones con media.
+  - Agrega productos contra catálogo Supabase.
+  - Aplica modificaciones en la misma frase o contra el producto activo.
+  - Cierra carrito con resumen.
+  - Avanza a entrega, dirección, pago y creación de orden.
+  - Escala reclamos y cambios sobre órdenes ya creadas.
+
+- `app/api/webhooks/whatsapp/route.ts`
+  - Cambió la llamada desde `despacharModulo()` a `procesarWhatsAppAgenteUnico()`.
+  - Mantiene guardado de mensajes, media, sesión, reclamos y estado de conversación.
+
+- `prisma/schema.prisma`
+  - `SesionPedido` ahora incluye `estadoConversacional Json @default("{}")`.
+
+- `prisma/migrations/20260611180000_add_estado_conversacional_sesion/migration.sql`
+  - Agrega la columna `estado_conversacional` a `sesiones_pedido`.
+
+- `scripts/regresion-agente-unico-whatsapp.ts`
+  - Harness dry-run para validar comportamiento conversacional sin crear órdenes reales.
+
+### 12.3 Casos que cubre
+
+- "Me puede enviar el menú" → responde y adjunta catálogo.
+- "Quiero la promo de 30 fritas pero todas con pollo" → agrega item con recargo.
+- "Solo eso" → muestra resumen y pide confirmación.
+- "Sí, por favor" → avanza a retiro/delivery.
+- "Retiro" → pide nombre y pago.
+- "Transferencia, Pablo" → crea orden.
+- "El kanikama y el camarón por pollo" → aplica cambio doble al item activo.
+- Orden creada + cambio/cancelación → humano.
+- Reclamo → humano.
+
+### 12.4 Validación
+
+- `npm run build`: OK.
+- `npx prisma db push`: OK. Se aplicó `estado_conversacional` porque la base existente no tenía historial de migraciones Prisma y `migrate deploy` devolvió `P3005`.
+- `npx tsx scripts/regresion-agente-unico-whatsapp.ts`: OK.
+
+## 13. Actualización 2026-06-11 — Enriquecimiento del agente único con comportamiento histórico
+
+### 13.1 Objetivo
+
+Traer al nuevo agente único lo mejor de `lib/agente.ts`: tono único, reglas amplias de atención, historial, consultas generales, tolerancia conversacional y fallback LLM, sin perder el control determinístico sobre carrito y orden.
+
+### 13.2 Cambios implementados
+
+- `lib/whatsapp/agente-unico-atencion.ts`
+  - Inyecta `TONO_Y_ESTILO` y `REGLAS_COMERCIALES`.
+  - Agrega prompt único "Roly" para fallback conversacional.
+  - Responde consultas de horario, medios de pago, despacho, retiro y recomendaciones con contexto real.
+  - Escala alergias, pedidos grandes/eventos y solicitud de humano.
+  - Maneja quitar ingredientes sin costo cuando aún no hay carrito.
+  - Maneja cambio de envoltura y rechaza envuelto en salmón.
+  - Usa LLM solo como respaldo para atención general; no decide carrito, confirmación, pago ni creación de orden.
+
+- `scripts/regresion-agente-unico-whatsapp.ts`
+  - Se agregaron casos para alergia, pedido grande, retiro sin carrito y envoltura en salmón.
+
+### 13.3 Validación
+
+- `npx tsx scripts/regresion-agente-unico-whatsapp.ts`: OK.
+- `npm run build`: OK.
+
+## 14. Actualización 2026-06-11 — Entrenamiento con errores, abreviaciones y lenguaje real
+
+### 14.1 Objetivo
+
+Robustecer el agente único ante mensajes reales de WhatsApp: faltas de ortografía, abreviaciones, chilenismos, falta de conectores y frases incompletas.
+
+### 14.2 Cambios implementados
+
+- `lib/modulos/intenciones-pedido.ts`
+  - Normaliza variantes como `qro`, `kiero`, `qero`, `xfa`, `prmo`, `promo30`.
+  - Reconoce errores fuertes de promos: `frtaz`, `fritaas`, `friyas`, `mxtas`, `premiun`.
+  - Reconoce errores de pokes/proteínas: `pke`, `poque`, `salmn`, `salman`, `cmrn`, `poyo`.
+  - Reconoce ingredientes abreviados: `kani`, `kanikma`, `cibulet`, `plta`, `qeso`.
+  - Detecta cambios informales: `kani y cmrn x poyo`, `toos pollo`, `full pollo`.
+  - Amplía afirmaciones: `sipo`, `yapo`, `oka`, `esa misma`.
+
+- `lib/modulos/flujo-utils.ts`
+  - Amplía cierres de pedido: `eso nomas`, `era eso`, `sería eso`, `sl eso`, `nada más por ahora`.
+
+- `lib/whatsapp/agente-unico-atencion.ts`
+  - Alinea afirmaciones del agente único con las variantes anteriores.
+
+- `scripts/regresion-agente-unico-whatsapp.ts`
+  - Agrega pruebas directas del parser para errores grotescos y abreviaciones.
+
+### 14.3 Validación
+
+- `npx tsx scripts/regresion-agente-unico-whatsapp.ts`: OK.
+- `npm run build`: OK.

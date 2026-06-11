@@ -136,6 +136,7 @@ export async function upsertSesionPedido(
     externalOrderId?: string;
     externalOrderNumber?: string;
     intentosConfirmacion?: number;
+    estadoConversacional?: object;
   }
 ) {
   const ahora = new Date();

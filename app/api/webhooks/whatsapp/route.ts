@@ -10,14 +10,15 @@ import {
 } from "@/lib/db-helpers";
 import { prisma } from "@/lib/prisma";
 import { evaluarGuards, MENSAJES_CANCELACION } from "@/lib/modulos/guards";
-import { despacharModulo } from "@/lib/modulos/dispatcher";
 import { cargarMediaCatalogoVisual, detectarIntencionVisual } from "@/lib/catalogo-visual";
 import { clasificarTipoReclamo, pareceReclamo } from "@/lib/modulos/flujo-utils";
+import { procesarWhatsAppAgenteUnico } from "@/lib/whatsapp/agente-unico-atencion";
 import type {
   SesionPedidoCtx,
   ItemCarritoWA,
   DireccionCliente,
   ModuloAgente,
+  EstadoConversacionalWA,
 } from "@/lib/modulos/types";
 import { EstadoConversacion, Prisma } from "@prisma/client";
 
@@ -98,6 +99,9 @@ function mapearSesionACtx(sesion: SesionPedidoDb): SesionPedidoCtx {
     externalOrderId: sesion.externalOrderId ?? undefined,
     externalOrderNumber: sesion.externalOrderNumber ?? undefined,
     intentosConfirmacion: sesion.intentosConfirmacion ?? 0,
+    estadoConversacional: sesion.estadoConversacional
+      ? (sesion.estadoConversacional as unknown as EstadoConversacionalWA)
+      : {},
     ultimaActividadEn: sesion.ultimaActividadEn ?? new Date(),
   };
 }
@@ -251,8 +255,10 @@ export async function POST(request: Request) {
       historial: historial.length > 0 ? historial : undefined,
     };
 
-    // Despachar al módulo correspondiente
-    const resultado = await despacharModulo(mensajeDespacho, sesionCtx);
+    // Procesar con agente único de atención WhatsApp.
+    // Los módulos M01-M13 quedan disponibles para rollback, pero WhatsApp ya no
+    // depende de múltiples cerebros tomando decisiones de conversación.
+    const resultado = await procesarWhatsAppAgenteUnico(mensajeDespacho, sesionCtx);
     respuestaFinal = resultado.respuesta;
     requiereHumano = resultado.requiereHumano ?? false;
     if (resultado.mediaAEnviar && resultado.mediaAEnviar.length > 0) {

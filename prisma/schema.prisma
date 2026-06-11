@@ -182,6 +182,7 @@ model SesionPedido {
   externalOrderId       String?      @map("external_order_id")
   externalOrderNumber   String?      @map("external_order_number")
   intentosConfirmacion  Int          @default(0) @map("intentos_confirmacion")
+  estadoConversacional  Json         @default("{}") @map("estado_conversacional")
   ultimaActividadEn     DateTime     @default(now()) @map("ultima_actividad_en")
   creadoEn              DateTime     @default(now()) @map("creado_en")
   actualizadoEn         DateTime     @updatedAt @map("actualizado_en")
