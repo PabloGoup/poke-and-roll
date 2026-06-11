@@ -5,7 +5,7 @@
 import OpenAI from 'openai';
 import type { MensajeDespacho, RespuestaModulo, SesionPedidoCtx, DireccionCliente } from './types';
 import { PROMPT_DIRECCION } from './prompts/m09';
-import { resolverZonaDespacho } from '@/lib/zonas-despacho';
+import { resolverCoberturaDespacho } from '@/lib/zonas-despacho';
 
 const FALLBACK: RespuestaModulo = {
   respuesta: 'Por favor indícanos tu dirección de despacho: calle con número y comuna.',
@@ -84,38 +84,65 @@ export async function ejecutar(
     district = parsed.direccionCompleta?.district ?? null;
     reference = parsed.direccionCompleta?.reference ?? null;
 
-    // Paso 2: si falta la comuna, pedir al cliente
+    // Paso 2: si falta calle/número o comuna, pedir solo el dato faltante.
+    if (!street) {
+      return {
+        respuesta: parsed.respuesta ?? 'Perfecto, ¿me puedes dar la calle con número y la comuna para calcular el despacho?',
+      };
+    }
+
     if (!district) {
       return {
         respuesta: parsed.respuesta ?? '¿En qué comuna necesitas el despacho?',
       };
     }
 
-    // Paso 3: resolver la zona de despacho
+    // Paso 3: resolver la cobertura de despacho con las tarifas configuradas.
     const direccionTexto = [street, district].filter(Boolean).join(', ');
-    const zona = await resolverZonaDespacho(direccionTexto).catch(() => null);
+    const cobertura = await resolverCoberturaDespacho(direccionTexto).catch(() => ({
+      estado: 'direccion_no_geocodificada' as const,
+    }));
 
-    // Paso 4: sin cobertura → ofrecer retiro y volver a TIPO_ENTREGA (no perder el carrito)
-    if (!zona) {
+    if (cobertura.estado !== 'cubierto') {
+      if (cobertura.estado === 'fuera_cobertura') {
+        const distancia = cobertura.distanciaKm != null
+          ? ` La distancia calculada es aprox. ${cobertura.distanciaKm.toFixed(1)} km.`
+          : '';
+        return {
+          respuesta: `Para esa dirección no tengo cobertura automática configurada.${distancia} Puedo dejarlo para retiro o derivarte con el equipo para revisar si se puede coordinar un despacho especial.`,
+          moduloSiguiente: 'ATENCION',
+          requiereHumano: true,
+          actualizarSesion: {
+            direccion: { street, district, reference: reference ?? undefined },
+          },
+        };
+      }
+
       return {
-        respuesta: `Lo siento, no llegamos a ${district}. Pero puedes pasar a retirarlo en nuestro local sin problema. ¿Te parece bien retiro en local?`,
-        moduloSiguiente: 'TIPO_ENTREGA',
-        // NO requiereHumano — el cliente puede elegir retiro por su cuenta
+        respuesta: 'Recibí la dirección, pero no pude calcular el costo de despacho automáticamente. Te derivo con el equipo para confirmar cobertura y valor antes de cerrar el pedido.',
+        moduloSiguiente: 'ATENCION',
+        requiereHumano: true,
+        actualizarSesion: {
+          direccion: { street, district, reference: reference ?? undefined },
+        },
       };
     }
 
     // Paso 5: zona encontrada → confirmar costo y avanzar
-    const tiempoMax = zona.tiempoBaseMinutos + 10;
+    const zona = cobertura.zona;
     const direccion: DireccionCliente = {
       street: street ?? '',
       district,
       reference: reference ?? undefined,
       zonaSupabaseId: zona.zonaId,
       costoCalculado: zona.costo,
+      tiempoEstimadoMin: zona.tiempoBaseMinutos,
+      lat: cobertura.lat,
+      lng: cobertura.lng,
     };
 
     return {
-      respuesta: `Para ${district} el despacho es $${zona.costo.toLocaleString('es-CL')}, tiempo estimado ${zona.tiempoBaseMinutos}–${tiempoMax} min. ¿Continuamos?`,
+      respuesta: `Para esa dirección el despacho es $${zona.costo.toLocaleString('es-CL')} y el tiempo estimado es ${zona.tiempoBaseMinutos}–${zona.tiempoEstimadoMax} min. ¿Continuamos con delivery a ${street}, ${district}?`,
       moduloSiguiente: 'FORMAS_PAGO',
       actualizarSesion: {
         direccion,
