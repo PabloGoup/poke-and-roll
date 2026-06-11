@@ -8,7 +8,15 @@ import { PROMPT_PEDIDOS } from './prompts/m04';
 import { obtenerCatalogoProductos, resolverItemsCarrito } from '@/lib/supabase-pedidos';
 import { verificarHorario } from './horarios';
 import { prisma } from '@/lib/prisma';
-import { construirResumenPedido, esCierreDePedido } from './flujo-utils';
+import { construirResumenPedido, esCierreDePedido, formatearPrecio } from './flujo-utils';
+import {
+  aplicarModificacionAItem,
+  buscarItemExistente,
+  debeEvitarDuplicado,
+  detectarItemPedidoDeterministico,
+  detectarModificacion,
+  ultimaModificacionPendiente,
+} from './intenciones-pedido';
 
 const FALLBACK: RespuestaModulo = {
   respuesta: 'Perdona, tuve un problema técnico. ¿Puedes repetir lo que necesitas?',
@@ -88,6 +96,70 @@ export async function ejecutar(
 
   // Construir items actuales del carrito
   const itemsActuales = sesion?.items ?? [];
+
+  const modificacionDirecta = detectarModificacion(msg.texto);
+  if (itemsActuales.length > 0 && modificacionDirecta) {
+    if (itemsActuales.length === 1) {
+      const itemActualizado = aplicarModificacionAItem(itemsActuales[0], modificacionDirecta);
+      return {
+        respuesta: `Perfecto, lo aplico en ${itemActualizado.productName}: ${modificacionDirecta.nota}. ¿Quieres agregar algo más o cerramos el pedido?`,
+        moduloSiguiente: 'PEDIDOS',
+        actualizarSesion: { items: [itemActualizado] },
+      };
+    }
+
+    return {
+      respuesta: `Puedo hacer ese cambio: ${modificacionDirecta.nota}. ¿En cuál producto del pedido lo aplico?`,
+      moduloSiguiente: 'PEDIDOS',
+    };
+  }
+
+  const textoReferenciaProducto = /\b(en la|en el|la de|el de|esa|ese)\b/i.test(msg.texto);
+  const modificacionPendiente = itemsActuales.length > 0 && textoReferenciaProducto ? ultimaModificacionPendiente(msg) : null;
+  if (modificacionPendiente && itemsActuales.length === 1) {
+    const itemActualizado = aplicarModificacionAItem(itemsActuales[0], modificacionPendiente);
+    return {
+      respuesta: `Perfecto, lo dejo aplicado en ${itemActualizado.productName}: ${modificacionPendiente.nota}. ¿Quieres agregar algo más o cerramos el pedido?`,
+      moduloSiguiente: 'PEDIDOS',
+      actualizarSesion: { items: [itemActualizado] },
+    };
+  }
+
+  const itemDetectado = detectarItemPedidoDeterministico(msg);
+  if (itemDetectado) {
+    try {
+      const existente = buscarItemExistente(itemsActuales, itemDetectado.nombre);
+      if (existente && debeEvitarDuplicado(msg.texto)) {
+        return {
+          respuesta: `Ya tengo anotado ${existente.quantity}x ${existente.productName}${existente.notes ? ` (${existente.notes})` : ''}. ¿Quieres agregar algo más o cerramos el pedido?`,
+          moduloSiguiente: 'PEDIDOS',
+        };
+      }
+
+      const { resueltos, noEncontrados } = await resolverItemsCarrito([itemDetectado]);
+      if (noEncontrados.length > 0 || resueltos.length === 0) {
+        return {
+          respuesta: `No encontré exactamente "${itemDetectado.nombre}" en el catálogo. ¿Quieres que te muestre alternativas disponibles?`,
+          moduloSiguiente: 'PEDIDOS',
+        };
+      }
+
+      const nuevosItems = [...itemsActuales, ...resueltos];
+      const agregado = resueltos[0];
+      return {
+        respuesta: `Agregado: ${agregado.quantity}x ${agregado.productName} a ${formatearPrecio(agregado.unitPrice)}${agregado.notes ? ` (${agregado.notes})` : ''}. ¿Quieres agregar algo más o cerramos el pedido?`,
+        moduloSiguiente: 'PEDIDOS',
+        actualizarSesion: { items: nuevosItems },
+      };
+    } catch {
+      return {
+        respuesta: 'No pude validar ese producto contra el catálogo en este momento. Te derivo con el equipo para confirmar disponibilidad.',
+        moduloSiguiente: 'ATENCION',
+        requiereHumano: true,
+      };
+    }
+  }
+
   if (itemsActuales.length > 0 && esCierreDePedido(msg.texto)) {
     return {
       respuesta: `Perfecto, tengo esto anotado:\n${construirResumenPedido({ ...sesion!, items: itemsActuales })}\n\n¿Confirmas que el pedido está correcto?`,

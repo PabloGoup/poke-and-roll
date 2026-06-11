@@ -508,3 +508,82 @@ Queda pendiente cierre operativo cuando:
 - Se roten secrets.
 - Se configuren variables en Vercel.
 - Se ejecute prueba E2E completa con WhatsApp, POS y cocina.
+
+## 9. Actualización 2026-06-11 — Orquestador WhatsApp y configuración operativa
+
+### 9.1 Problema detectado
+
+Las conversaciones de WhatsApp seguían fallando porque los módulos M01-M13 actuaban como cerebros independientes:
+
+- `BIENVENIDA` podía responder solicitudes de carta sin enviar media.
+- `CONSULTAS` podía perder contexto de carrito.
+- `PEDIDOS` podía agregar un item y luego una consulta como "qué trae" volvía a preguntar "¿cuál?".
+- Mensajes como "no", "solo eso" o "no, solo eso" podían cortar el flujo en vez de cerrar el carrito.
+- Después de crear una orden, el bot podía volver a comportamiento de pedido normal.
+
+### 9.2 Cambio arquitectónico
+
+Se reforzó `lib/modulos/dispatcher.ts` para que funcione como orquestador determinístico antes de ejecutar handlers:
+
+- Reclamos pasan siempre a `ATENCION`.
+- Carta/promociones pasan a `CONSULTAS + media`, sin pasar por bienvenida.
+- Orden creada (`externalOrderId`) bloquea pedidos normales; cambios/cancelaciones escalan.
+- Carrito activo + "no / solo eso" muestra resumen y pasa a confirmación.
+- Carrito activo + "qué trae / incluye / ingredientes" responde sobre el último item anotado.
+- Si falta entrega, fuerza `TIPO_ENTREGA`.
+- Si falta dirección para delivery, fuerza `DIRECCION`.
+- Si falta pago o nombre, fuerza `FORMAS_PAGO`.
+- Sin sesión activa, recién ahí usa bienvenida/consulta/pedido.
+
+### 9.3 Ajustes relacionados
+
+- `lib/modulos/types.ts`: se permitieron consultas informativas desde `PEDIDOS`, `ORDEN_COMPRA` y `CONFIRMACION` sin romper carrito.
+- `lib/modulos/m02-consultas.ts`: se quitó el link normal junto al PDF; el link queda como fallback solo si falla media.
+- `docs/matriz-regresion-whatsapp.md`: se creó una matriz de escenarios mínimos de no regresión para WhatsApp.
+- `lib/configuracion-comercial.ts`: se ajustó guardado de tarifas para Prisma en modo HTTP, evitando transacciones/`createMany`.
+- `app/api/configuracion-comercial/tarifas/route.ts`: ahora retorna el error real del backend cuando falla.
+
+### 9.4 Validaciones ejecutadas
+
+- `npm run build`: OK.
+- Prueba local de `PUT /api/configuracion-comercial/tarifas`: OK con dirección `recoleta 5758, huechuraba`.
+- Prueba local de upload a Supabase Storage: OK con bucket `catalogo-visual`, service role corregida y lectura pública del PDF.
+
+### 9.5 Pendiente crítico
+
+Convertir `docs/matriz-regresion-whatsapp.md` en pruebas automáticas reales para evitar volver a reparar conversación por conversación.
+
+## 10. Actualización 2026-06-11 — Motor determinístico de pedidos
+
+### 10.1 Problema detectado
+
+El flujo seguía fallando en conversaciones con aclaraciones y modificaciones:
+
+- "Promo de 30" abría opciones, pero "la de 30 friyas" no se convertía confiablemente en pedido.
+- "Sí" después de una aclaración como "¿te refieres a la Promo 30 piezas fritas?" podía volver a bienvenida.
+- Con un único item en carrito, "cambiar kanikama x pollo" preguntaba innecesariamente en qué producto aplicar el cambio.
+- El LLM seguía tomando decisiones de carrito que deberían ser operaciones determinísticas.
+
+### 10.2 Cambio implementado
+
+Se agregó `lib/modulos/intenciones-pedido.ts` como motor determinístico de intención de pedido:
+
+- Detecta promos comunes por texto tolerante a errores: `30 fritas`, `30 friyas`, `30 mixtas`, `30 premium`.
+- Detecta afirmaciones sobre la última aclaración del agente.
+- Detecta pokes/gohan comunes por proteína.
+- Detecta modificaciones tipo `cambiar X por Y` o `cambiar X x Y`.
+- Aplica modificaciones directamente al único item del carrito con recargo correspondiente.
+- Evita duplicar items cuando el cliente vuelve a pedir el mismo producto sin decir "otra/otro".
+
+### 10.3 Archivos modificados
+
+- `lib/modulos/intenciones-pedido.ts`
+- `lib/modulos/m04-pedidos.ts`
+
+### 10.4 Validación
+
+- `npm run build`: OK.
+
+### 10.5 Pendiente
+
+Ampliar el motor determinístico con más productos frecuentes del menú y convertir esta lógica en tests automáticos de conversación.
