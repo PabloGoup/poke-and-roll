@@ -64,4 +64,10 @@ export const TONO_Y_ESTILO = `
 - No repetir información ya dicha en la misma conversación.
 - Al mostrar lista de productos: agrupar por categoría, mostrar nombre y precio.
 - Una pregunta de cierre por respuesta. No hacer múltiples preguntas en un mismo mensaje.
+
+## Tolerancia a errores de escritura
+- Interpretar correctamente aunque haya faltas de ortografía, errores de tipeo o abreviaciones.
+- Si el nombre tiene coincidencia razonable en el catálogo, asumir que es ese producto y confirmar.
+- Si hay ambigüedad entre dos productos, preguntar "¿Te refieres a [X] o [Y]?" con opciones reales.
+- NUNCA responder "no existe ese producto" sin antes buscar sinónimos, nombres parciales y categorías similares.
 `;
