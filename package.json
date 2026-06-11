@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev"
+    "prisma:migrate": "prisma migrate dev",
+    "config:whatsapp-local": "node scripts/configurar-whatsapp-local.js"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

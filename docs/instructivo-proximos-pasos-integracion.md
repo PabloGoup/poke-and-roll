@@ -1,6 +1,6 @@
 # Instructivo — próximos pasos para cerrar la integración
 
-Fecha: 2026-06-10
+Fecha: 2026-06-11
 
 Este instructivo indica qué debes hacer ahora para pasar del estado local compilable a una integración operativa con Supabase, Vercel, WhatsApp y POS/cocina.
 
@@ -31,8 +31,10 @@ Actualizado durante la ejecución guiada:
 | Validar catálogo/RPC | ✅ Hecho | `jsonb_array_length(public.buscar_productos_activos())` devolvió `78` productos activos. |
 | Perfil técnico Bot WhatsApp | ✅ Hecho | Se usó un perfil real existente de `public.profiles` y se actualizó `WHATSAPP_BOT_CASHIER_ID` en `.env.local` y Vercel Production/Preview. |
 | Prueba transaccional de pedido | ✅ Hecho | `create_storefront_order` respondió con JSON dentro de `begin ... rollback` y la verificación posterior devolvió `0/0`. |
+| Configurar credenciales WhatsApp por local | ⬜ Pendiente | El local `Sushi Poke & Roll` existe, pero `Local.waPhoneId` y `Local.waToken` están vacíos. |
 | Configurar Database Webhook | ⬜ Pendiente | Usar el mismo secret rotado en header `x-webhook-secret`. |
-| Deploy nuevo | 🔄 En curso | Siguiente paso: correr build local y desplegar para que Vercel tome variables nuevas. |
+| Deploy nuevo | ✅ Hecho | Redeploy productivo realizado y alias confirmado en `https://goupsoluciones.cl`. |
+| Prueba webhook `pedido-listo` | ✅ Hecho | La ruta responde con secret válido y salta correctamente cuando no hay transición a `listo`. |
 | Prueba E2E | ⬜ Pendiente | WhatsApp → orden → POS/cocina → pedido listo → notificación. |
 
 Nota: se intentó revisar aplicación por Supabase CLI, pero el acceso remoto de Postgres requiere la contraseña de base de datos. Para evitar riesgo, el SQL se está aplicando manualmente desde Supabase SQL Editor.
@@ -241,6 +243,57 @@ Checklist por local:
 - Token válido para enviar mensajes desde ese número.
 - Usuario admin vinculado al local si corresponde.
 
+Estado actual verificado en Neon/Prisma:
+
+```text
+Local: Sushi Poke & Roll
+slug: poke-and-roll
+waPhoneId: pendiente
+waToken: pendiente
+```
+
+Esto explica por qué `https://goupsoluciones.cl/api/health` aún muestra `whatsapp: false`: las variables globales de WhatsApp también están vacías. Para producción multi-local, lo correcto es cargar `waPhoneId` y `waToken` en el registro `Local`; las variables globales quedan solo como fallback de desarrollo.
+
+También se revisó el token Meta disponible en `.env`: corresponde a un contexto de Página/Meta y no permite descubrir activos WhatsApp Business para esta app, por lo que no debe reutilizarse como `waToken` del local.
+
+Siguiente acción recomendada:
+
+1. Obtener en Meta el `phone_number_id` del número WhatsApp Business.
+2. Obtener un token válido para enviar mensajes por ese número.
+3. Guardarlos en el local correspondiente de Poke and roll sin documentar el valor del token.
+
+Script preparado para cargar las credenciales en el local:
+
+```bash
+LOCAL_SLUG="poke-and-roll" \
+WA_PHONE_ID="<phone_number_id>" \
+WA_TOKEN="<whatsapp_access_token>" \
+npm run config:whatsapp-local
+```
+
+El script actualiza `Local.waPhoneId` y `Local.waToken`, pero solo imprime si quedaron configurados; no muestra el token.
+
+Consulta segura para verificar después de cargarlo, sin exponer valores:
+
+```bash
+node <<'NODE'
+require('dotenv').config({ path: '.env.local' });
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+
+prisma.local.findMany({
+  select: { nombre: true, slug: true, waPhoneId: true, waToken: true },
+})
+  .then((rows) => console.log(rows.map((local) => ({
+    nombre: local.nombre,
+    slug: local.slug,
+    waPhoneId: Boolean(local.waPhoneId),
+    waToken: Boolean(local.waToken),
+  }))))
+  .finally(() => prisma.$disconnect());
+NODE
+```
+
 ## 7. Configurar webhook `pedido-listo` en Supabase
 
 En Supabase:
@@ -279,7 +332,14 @@ create extension if not exists pg_net;
 
 ## 8. Hacer deploy
 
-Después de actualizar variables en Vercel:
+Estado actual:
+
+- Deploy productivo realizado.
+- `.vercelignore` creado para evitar subir `.env` y `.env.local`.
+- Dominio `https://goupsoluciones.cl` apuntando al deployment productivo.
+- `https://goupsoluciones.cl/api/webhooks/pedido-listo` responde correctamente con el secret válido.
+
+Para futuros cambios:
 
 1. Haz nuevo deploy.
 2. Espera que termine sin errores.
@@ -334,6 +394,12 @@ Resultados esperados:
 - `401`: secret incorrecto.
 - `skipped`: payload válido, pero no corresponde notificar.
 - `ok: true`: webhook procesado.
+
+Estado actual:
+
+- La prueba contra producción con payload sin transición a `listo` respondió `{"ok":true,"skipped":"not-listo-transition"}`.
+- Esto valida que la ruta existe, que el dominio funciona y que el header `x-webhook-secret` está siendo aceptado.
+- Falta probar una transición real `en_preparacion -> listo` desde Supabase cuando el local ya tenga credenciales WhatsApp.
 
 ## 11. Prueba E2E WhatsApp
 

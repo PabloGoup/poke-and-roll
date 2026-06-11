@@ -52,6 +52,13 @@ Panel: Supabase → proyecto Pizza_and_roll → Database → Webhooks
   - `Content-Type: application/json`
   - `x-webhook-secret: <SUPABASE_PEDIDOS_WEBHOOK_SECRET_ROTADO>`
 
+Estado actual:
+
+- La ruta productiva `https://goupsoluciones.cl/api/webhooks/pedido-listo` existe y valida el secret.
+- Falta crear el Database Webhook en Supabase para disparar la ruta cuando `public.orders.status` cambie a `listo`.
+- El envío real de WhatsApp requiere que el local tenga `Local.waPhoneId` y `Local.waToken`; actualmente el local `Sushi Poke & Roll` no los tiene cargados.
+- El token Meta disponible en `.env` no debe reutilizarse como `waToken`: no permite listar activos WhatsApp para esta app y pertenece a un contexto distinto.
+
 ## pg_net
 
 Verificar en SQL Editor:

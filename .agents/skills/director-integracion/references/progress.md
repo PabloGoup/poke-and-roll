@@ -1,6 +1,6 @@
 # Progress Tracker — Integración Poke and roll + Pizza_and_roll
 
-Actualizado: 2026-06-10
+Actualizado: 2026-06-11
 
 ## Estado General
 
@@ -18,10 +18,11 @@ Hay 25 specs operativas en `agents/`, numeradas `00` a `24`. La validación fina
 | Dispatcher modular | ✅ Implementado | API canónica: `despacharModulo()`. Alias compatible: `despachar`. |
 | Build Poke and roll | ✅ Pasa localmente | Quedan warnings no bloqueantes de lint. |
 | Build Pizza_and_roll | ✅ Pasa localmente | Quedan warnings/chunks no bloqueantes. |
-| WhatsApp multi-local | ✅ Implementado en código | Requiere `Local.waPhoneId` y, idealmente, `Local.waToken`. |
+| WhatsApp multi-local | ⚠️ Implementado en código | El local `Sushi Poke & Roll` existe, pero `Local.waPhoneId` y `Local.waToken` están pendientes. |
 | Pedido listo | ✅ Implementado en código | Mensaje de delivery no promete "va en camino" al pasar a `listo`. |
-| RPC Supabase | ⚠️ SQL preparado | Falta aplicar/revisar en Supabase producción o staging. |
+| RPC Supabase | ✅ Validado en producción | `buscar_productos_activos()` devuelve 78 productos y `create_storefront_order(payload jsonb)` pasó prueba con rollback. |
 | Webhook Supabase | ⚠️ Pendiente externo | Falta configurar URL, header y secret rotado. |
+| Deploy Vercel | ✅ Validado | Redeploy productivo hecho y `pedido-listo` responde en `https://goupsoluciones.cl`. |
 | Validación E2E | ⬜ Pendiente | Requiere ambiente con Meta/Supabase activos. |
 
 ## Estado Por Spec
@@ -61,3 +62,4 @@ Hay 25 specs operativas en `agents/`, numeradas `00` a `24`. La validación fina
 - `pedido-listo` significa que cocina terminó; no significa automáticamente que el delivery salió.
 - Las órdenes WhatsApp deben crearse con `source = 'whatsapp'` y `cashier_id` de perfil técnico si está disponible.
 - No se deben dejar tokens, service role keys ni webhook secrets reales en documentación.
+- El bloqueo inmediato para notificación real es cargar credenciales WhatsApp en `Local.waPhoneId` y `Local.waToken` o configurar fallback global válido.
