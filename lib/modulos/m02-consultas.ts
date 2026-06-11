@@ -6,6 +6,7 @@ import OpenAI from 'openai';
 import type { MensajeDespacho, MediaAEnviar, RespuestaModulo, SesionPedidoCtx } from './types';
 import { PROMPT_CONSULTAS } from './prompts/m02';
 import { consultarEstadoOrden } from '@/lib/supabase-pedidos';
+import { obtenerContextoNegocio, serializarContextoNegocio } from '@/lib/catalogo';
 import { prisma } from '@/lib/prisma';
 
 const FALLBACK: RespuestaModulo = {
@@ -39,6 +40,11 @@ function getModel(): string {
 
 function normalizarTexto(t: string) {
   return t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
+function esSolicitudProductos(texto: string): boolean {
+  const n = normalizarTexto(texto);
+  return /\b(precio|vale|cuesta|cuanto|opciones|tiene|hay|recomien|recomienda|roll|poke|sushi|burger|aperitivo|promo|promocion|combo|hand roll|piezas)\b/.test(n);
 }
 
 function esSolicitudCatalogoVisual(texto: string): 'menu' | 'promos' | null {
@@ -169,9 +175,21 @@ export async function ejecutar(
   const solicitudVisual = esSolicitudCatalogoVisual(msg.texto);
   const mediaAEnviar = solicitudVisual ? await cargarImagenesCatalogo(solicitudVisual) : [];
 
+  // Cargar catálogo de productos si la consulta lo requiere (precio, producto, promo, recomendación)
+  let catalogoTexto = '';
+  if (esSolicitudProductos(msg.texto)) {
+    try {
+      const ctx = await obtenerContextoNegocio(msg.texto);
+      catalogoTexto = serializarContextoNegocio(ctx);
+    } catch {
+      // fail silently — Gemini responderá con lo que tenga
+    }
+  }
+
   const contexto = [
     infoLocal,
     infoEstadoOrden,
+    catalogoTexto ? `Catálogo disponible:\n${catalogoTexto}` : '',
     historialTexto,
     mediaAEnviar.length > 0
       ? `(Se adjuntarán ${mediaAEnviar.length} imagen(es) del catálogo visual antes de este mensaje)`
