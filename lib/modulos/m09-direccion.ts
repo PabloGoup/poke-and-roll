@@ -95,12 +95,12 @@ export async function ejecutar(
     const direccionTexto = [street, district].filter(Boolean).join(', ');
     const zona = await resolverZonaDespacho(direccionTexto).catch(() => null);
 
-    // Paso 4: sin cobertura → escalar a ATENCION
+    // Paso 4: sin cobertura → ofrecer retiro y volver a TIPO_ENTREGA (no perder el carrito)
     if (!zona) {
       return {
-        respuesta: `Lamentablemente no tenemos cobertura en ${district}. ¿Prefieres retiro en el local?`,
-        moduloSiguiente: 'ATENCION',
-        requiereHumano: true,
+        respuesta: `Lo siento, no llegamos a ${district}. Pero puedes pasar a retirarlo en nuestro local sin problema. ¿Te parece bien retiro en local?`,
+        moduloSiguiente: 'TIPO_ENTREGA',
+        // NO requiereHumano — el cliente puede elegir retiro por su cuenta
       };
     }
 
