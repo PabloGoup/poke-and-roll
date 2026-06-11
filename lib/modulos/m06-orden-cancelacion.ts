@@ -3,10 +3,9 @@
 // ============================================================
 
 import OpenAI from 'openai';
-import { createClient } from '@supabase/supabase-js';
 import type { MensajeDespacho, RespuestaModulo, SesionPedidoCtx } from './types';
 import { PROMPT_ORDEN_CANCELACION } from './prompts/m06';
-import { consultarEstadoOrden } from '@/lib/supabase-pedidos';
+import { consultarEstadoOrden, cancelarOrdenSupabase } from '@/lib/supabase-pedidos';
 
 const FALLBACK: RespuestaModulo = {
   respuesta: 'Entendido, tu pedido ha sido cancelado. ¿Puedo ayudarte con algo más?',
@@ -38,17 +37,8 @@ function getModel(): string {
   return 'gpt-4o-mini';
 }
 
-async function cancelarOrdenEnSupabase(orderId: string): Promise<boolean> {
-  const supabase = createClient(
-    process.env.SUPABASE_PEDIDOS_URL!,
-    process.env.SUPABASE_PEDIDOS_ANON_KEY!
-  );
-  const { error } = await supabase
-    .from('orders')
-    .update({ status: 'cancelado' })
-    .eq('id', orderId);
-  return !error;
-}
+// La cancelación usa la RPC SECURITY DEFINER (el UPDATE directo con anon key
+// era bloqueado silenciosamente por RLS). Ver cancelarOrdenSupabase en supabase-pedidos.
 
 export async function ejecutar(
   msg: MensajeDespacho,
@@ -67,7 +57,11 @@ export async function ejecutar(
 
     if (estadoOrden === 'pendiente') {
       // Cancelable
-      cancelacionRealizada = await cancelarOrdenEnSupabase(sesion.externalOrderId).catch(() => false);
+      cancelacionRealizada = await cancelarOrdenSupabase(
+        sesion.externalOrderId,
+        sesion.telefonoCliente ?? msg.telefonoCliente ?? '',
+        'cliente_solicito'
+      ).catch(() => false);
     }
   }
 

@@ -254,21 +254,37 @@ export async function obtenerPerfilCliente(telefono: string) {
 }
 
 export async function consultarEstadoOrden(orderId: string) {
-  const { data, error } = await supabase
-    .from('orders')
-    .select('id, number, status, estimated_ready_at')
-    .eq('id', orderId)
-    .single();
+  // SELECT directo en orders está bloqueado por RLS para anon — se usa la
+  // RPC SECURITY DEFINER get_storefront_order_status.
+  const { data, error } = await supabase.rpc('get_storefront_order_status', {
+    p_order_id: orderId,
+  });
   if (error) return null;
-  return data;
+  const res = data as { ok?: boolean; id?: string; number?: string; status?: string; estimated_ready_at?: string | null };
+  if (!res?.ok) return null;
+  return {
+    id: res.id!,
+    number: res.number!,
+    status: res.status!,
+    estimated_ready_at: res.estimated_ready_at ?? null,
+  };
 }
 
-export async function cancelarOrdenSupabase(orderId: string): Promise<boolean> {
-  const { error } = await supabase
-    .from('orders')
-    .update({ status: 'cancelado', cancellation_reason: 'cliente_solicito' })
-    .eq('id', orderId)
-    .eq('status', 'pendiente'); // solo si está pendiente, no si ya está en_preparacion
+export async function cancelarOrdenSupabase(
+  orderId: string,
+  telefonoCliente: string,
+  motivo: string = 'cliente_solicito'
+): Promise<boolean> {
+  // El UPDATE directo en orders está bloqueado por RLS para la anon key
+  // (fallaba silenciosamente: retornaba true sin actualizar nada).
+  // Se usa la RPC SECURITY DEFINER cancel_storefront_order, que valida que
+  // la orden esté 'pendiente', sea de WhatsApp y el teléfono coincida.
+  const { data, error } = await supabase.rpc('cancel_storefront_order', {
+    p_order_id: orderId,
+    p_customer_phone: telefonoCliente.replace(/\D/g, ''),
+    p_reason: motivo,
+  });
 
-  return !error;
+  if (error) return false;
+  return (data as { ok?: boolean })?.ok === true;
 }

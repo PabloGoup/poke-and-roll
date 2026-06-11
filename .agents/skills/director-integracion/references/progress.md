@@ -76,3 +76,64 @@ Hay 25 specs operativas en `agents/`, numeradas `00` a `24`. La validación fina
 - Documento de flujo canónico del usuario guardado en `references/flujo-atencion-whatsapp.md` (30 flujos + matriz de decisiones).
 - Build de producción Next.js: ✅ pasa. TypeScript: ✅ limpio.
 - Pendiente: Oleada 7 (pruebas E2E) + acciones del usuario (service role key, SQL en Supabase dashboard, Database Webhook, GOOGLE_MAPS_API_KEY).
+
+## Log del Director — 2026-06-11 (Oleada 7 — Pruebas E2E)
+
+Resultados contra entorno real de Supabase:
+- A Catálogo: ✅ 78 productos reales vía buscar_productos_activos
+- B Fuzzy match: ✅ 4/4 (exacto, sin tildes, parcial, inexistente→noEncontrados)
+- C Zonas: ⚠️ delivery_zones VACÍA — sin zonas, ningún delivery podrá crearse (acción usuario)
+- D Crear orden: ✅ PR-001050 con source='whatsapp', cashier_id correcto, kitchen_ticket creado
+- E Webhook pedido-listo: ✅ 401 sin secret, ok con secret, skipped para source web
+- F Guards: ✅ cancelación/timeout/continuar
+- G Cancelación: ❌→CORREGIDO — anon key no puede UPDATE/SELECT orders (RLS silencioso)
+
+Correcciones derivadas de E2E:
+- REGRESIÓN BLOQUEO 3 detectada y corregida: zonas-despacho.ts había sido reescrito para usar
+  solo Neon/km; ahora es Supabase-first (delivery_zones autoritativo) con fallback km.
+- m09: usa el district exacto de delivery_zones para garantizar match en la RPC.
+- Nueva RPC cancel_storefront_order + get_storefront_order_status
+  (Pizza_and_roll/supabase/add_cancel_storefront_order.sql) — PENDIENTE ejecutar en dashboard.
+- cancelarOrdenSupabase y consultarEstadoOrden migrados a las RPC; m06 usa el helper central.
+- Orden de prueba PR-001050 cancelada (limpieza).
+
+ACCIONES PENDIENTES DEL USUARIO:
+1. Ejecutar add_cancel_storefront_order.sql en el SQL Editor de Supabase.
+2. Poblar delivery_zones con las comunas de cobertura (district, fee, base_minutes, is_active).
+
+## Log del Director — 2026-06-11 (Re-test E2E tras configuración del usuario)
+
+Usuario completó: RPCs aplicadas en Supabase + delivery_zones poblada (Santiago $2.000, Providencia $2.500).
+
+Resultados del re-test:
+- C Zonas: ✅ "Santiago" → cubierto $2.000 (Zona Centro); "Arica" → fuera_cobertura. Supabase-first operativo.
+- D Crear orden: ✅ PR-001051 creada (la marca ❌ del script es solo la verificación SELECT con anon key, bloqueada por RLS por diseño; verificada OK con service role).
+- G Cancelación: ❌ → BUG SQL encontrado: "column reference order_id is ambiguous" — el parámetro
+  de la RPC colisionaba con la columna kitchen_tickets.order_id en PL/pgSQL.
+
+Corrección aplicada (v2 de add_cancel_storefront_order.sql):
+- Parámetros renombrados con prefijo p_ (p_order_id, p_customer_phone, p_reason) y variables v_.
+- Incluye DROP FUNCTION previos (CREATE OR REPLACE no permite renombrar argumentos).
+- Callers TS actualizados: lib/supabase-pedidos.ts (cancelarOrdenSupabase, consultarEstadoOrden)
+  y scripts/test-e2e.ts usan los nombres p_*.
+- Orden de prueba PR-001051 cancelada con service role (limpieza).
+
+PENDIENTE USUARIO: re-ejecutar /Users/ptoledos/Pizza_and_roll/supabase/add_cancel_storefront_order.sql
+(v2 completo, incluye los DROP) en el SQL Editor. Luego `npx tsx scripts/test-e2e.ts` con
+NODE_OPTIONS="--experimental-websocket" debe dar G ✅.
+
+## Log del Director — 2026-06-11 (CIERRE — E2E 7/7 ✅)
+
+Usuario aplicó el SQL v2. Suite final completa:
+- A Catálogo ✅ | B Fuzzy 4/4 ✅ | C Zonas ✅ (Santiago cubierto $2.000 / Arica rechazada)
+- D Crear orden ✅ (verificación migrada a RPC get_storefront_order_status — el SELECT anon
+  está bloqueado por RLS por diseño, era un falso negativo del script)
+- E Webhook pedido-listo ✅ (validado en corrida anterior: 401 sin secret / ok / skipped no-whatsapp)
+- F Guards ✅ | G Cancelación ✅ (RPC v2 con params p_*)
+
+El script scripts/test-e2e.ts es auto-limpiante: la Prueba G cancela la orden que crea la Prueba D.
+Comando: NODE_OPTIONS="--experimental-websocket" npx tsx scripts/test-e2e.ts
+
+INTEGRACIÓN COMPLETA — las 8 oleadas (0-7) cerradas. Pendientes de producción (fuera del alcance
+de la integración): tokens WABA reales, env vars SUPABASE_PEDIDOS_* en Vercel, suscripción del
+campo messages en Meta Developer Console.

@@ -132,7 +132,9 @@ export async function ejecutar(
     const zona = cobertura.zona;
     const direccion: DireccionCliente = {
       street: street ?? '',
-      district,
+      // Usar el district EXACTO de la zona (valor de delivery_zones en Supabase)
+      // para garantizar el match lower(district) en la RPC create_storefront_order.
+      district: zona.district || district,
       reference: reference ?? undefined,
       zonaSupabaseId: zona.zonaId,
       costoCalculado: zona.costo,
