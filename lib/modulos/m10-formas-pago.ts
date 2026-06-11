@@ -103,7 +103,7 @@ export async function ejecutar(
   const metodoPagoFinal = metodoPago ?? sesion.metodoPago ?? null;
   const nombreFinal = nombreCliente ?? sesion.nombreCliente ?? null;
   // Prioridad: número WA de origen > lo que dijo el cliente > sesión previa
-  const telefonoFinal = telefonoWA ?? telefonoCliente ?? sesion.telefonoCliente ?? null;
+  const telefonoFinal = telefonoWA ?? telefonoCliente ?? sesion.telefonoCliente ?? undefined;
 
   // Paso 2: solo bloqueamos si faltan método de pago o nombre (teléfono siempre disponible vía WA)
   if (!metodoPagoFinal || !nombreFinal) {
