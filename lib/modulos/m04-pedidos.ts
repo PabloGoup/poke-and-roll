@@ -91,11 +91,16 @@ export async function ejecutar(
     ? `Carrito actual:\n${itemsActuales.map(i => `- ${i.quantity}x ${i.productName}${i.notes ? ` (${i.notes})` : ''}: $${(i.unitPrice * i.quantity).toLocaleString('es-CL')}`).join('\n')}`
     : 'Carrito vacío.';
 
+  const historialTexto = msg.historial && msg.historial.length > 0
+    ? `Historial reciente:\n${msg.historial.map(h => `[${h.rol === 'cliente' ? 'Cliente' : 'Agente'}]: ${h.texto}`).join('\n')}`
+    : '';
+
   const contexto = [
     catalogoTexto,
     carritoTexto,
+    historialTexto,
     `Mensaje del cliente: "${msg.texto}"`,
-  ].join('\n\n');
+  ].filter(Boolean).join('\n\n');
 
   if (!openai) {
     return {

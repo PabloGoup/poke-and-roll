@@ -215,4 +215,5 @@ export interface MensajeDespacho {
   cliente?: string;
   telefonoCliente?: string;
   idMensajeMeta?: string;
+  historial?: { rol: 'cliente' | 'agente'; texto: string }[];
 }

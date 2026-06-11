@@ -112,9 +112,14 @@ export async function ejecutar(
     infoLocal = 'Información del local no disponible temporalmente.';
   }
 
+  const historialTexto = msg.historial && msg.historial.length > 0
+    ? `Historial reciente:\n${msg.historial.map(h => `[${h.rol === 'cliente' ? 'Cliente' : 'Agente'}]: ${h.texto}`).join('\n')}`
+    : '';
+
   const contexto = [
     infoLocal,
     infoEstadoOrden,
+    historialTexto,
     `Mensaje del cliente: "${msg.texto}"`,
   ].filter(Boolean).join('\n\n');
 

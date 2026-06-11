@@ -164,6 +164,20 @@ export async function POST(request: Request) {
     respuestaFinal =
       MENSAJES_CANCELACION[guardResult.motivo] ?? "¡Entendido! Pedido cancelado.";
   } else {
+    // Cargar historial reciente para dar contexto a los módulos
+    const mensajesRecientes = await prisma.mensaje.findMany({
+      where: { conversacionId: conversacion.id },
+      orderBy: { creadoEn: "desc" },
+      take: 8,
+    });
+    const historial = mensajesRecientes
+      .reverse()
+      .filter((m) => m.texto !== texto) // excluir el mensaje actual (ya guardado)
+      .map((m) => ({
+        rol: m.direccion === "entrante" ? ("cliente" as const) : ("agente" as const),
+        texto: m.texto,
+      }));
+
     // Preparar mensaje para el dispatcher
     const mensajeDespacho = {
       canal: "whatsapp" as const,
@@ -173,6 +187,7 @@ export async function POST(request: Request) {
       cliente: nombreCliente,
       telefonoCliente: telefono,
       idMensajeMeta: message.id,
+      historial: historial.length > 0 ? historial : undefined,
     };
 
     // Despachar al módulo correspondiente
