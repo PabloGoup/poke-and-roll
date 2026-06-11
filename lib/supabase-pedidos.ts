@@ -1,8 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
-// Node 20 no tiene WebSocket nativo — supabase-js lo requiere para Realtime.
-// En Next.js (backend) no necesitamos Realtime; usamos ws como transporte.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const ws = require('ws') as typeof WebSocket;
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type {
   ItemCarritoWA,
   ProductoResuelto,
@@ -26,15 +22,28 @@ type CatalogoProductoRpc = {
   }[];
 };
 
-const supabase = createClient(
-  process.env.SUPABASE_PEDIDOS_URL!,
-  process.env.SUPABASE_PEDIDOS_ANON_KEY!,
-  {
-    realtime: {
-      transport: ws,
-    },
+// Cliente lazy — se crea en el primer uso, no al importar.
+// Esto evita que env vars faltantes rompan la importación del módulo completo
+// (lo que hacía que el dispatcher fallara y respondiera "derivarte con nuestro equipo").
+let _supabase: SupabaseClient | null = null;
+
+function getSupabase(): SupabaseClient {
+  if (_supabase) return _supabase;
+  const url = process.env.SUPABASE_PEDIDOS_URL;
+  const key = process.env.SUPABASE_PEDIDOS_ANON_KEY;
+  if (!url || !key) {
+    throw new Error('Faltan SUPABASE_PEDIDOS_URL o SUPABASE_PEDIDOS_ANON_KEY en las variables de entorno.');
   }
-);
+  // Node 20 sin WebSocket nativo: usar el paquete ws como transporte para Realtime.
+  // En server-side Next.js no usamos Realtime, pero supabase-js lo inicializa al crearse.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const wsTransport = require('ws') as typeof WebSocket;
+  _supabase = createClient(url, key, { realtime: { transport: wsTransport } });
+  return _supabase;
+}
+
+// Alias corto para el resto del archivo
+const supabase = { get value() { return getSupabase(); } };
 
 // Cache en memoria con TTL 5 minutos
 let catalogoCache: ProductoResuelto[] | null = null;
@@ -45,7 +54,7 @@ export async function obtenerCatalogoProductos(): Promise<ProductoResuelto[]> {
   if (catalogoCache && Date.now() - catalogoCacheAt < CACHE_TTL_MS) {
     return catalogoCache;
   }
-  const { data, error } = await supabase.rpc('buscar_productos_activos');
+  const { data, error } = await supabase.value.rpc('buscar_productos_activos');
   if (error) throw new Error(`Error obteniendo catálogo: ${error.message}`);
   // Mapear id → productId para compatibilidad con ItemCarritoWA
   const productos = Array.isArray(data) ? (data as CatalogoProductoRpc[]) : [];
@@ -222,7 +231,7 @@ export async function crearOrdenWhatsApp(sesion: SesionPedidoCtx): Promise<Resul
   const total = subtotal + (sesion.costoDespacho ?? 0);
 
   // La RPC recibe un único parámetro `payload jsonb` que contiene cart y checkout
-  const { data, error } = await supabase.rpc('create_storefront_order', {
+  const { data, error } = await supabase.value.rpc('create_storefront_order', {
     payload: {
       cart: sesion.items,
       checkout: {
@@ -255,7 +264,7 @@ export async function crearOrdenWhatsApp(sesion: SesionPedidoCtx): Promise<Resul
 }
 
 export async function obtenerPerfilCliente(telefono: string) {
-  const { data, error } = await supabase.rpc('get_storefront_customer_profile', {
+  const { data, error } = await supabase.value.rpc('get_storefront_customer_profile', {
     customer_phone: telefono.replace(/\D/g, ''),
   });
   if (error) return null;
@@ -265,7 +274,7 @@ export async function obtenerPerfilCliente(telefono: string) {
 export async function consultarEstadoOrden(orderId: string) {
   // SELECT directo en orders está bloqueado por RLS para anon — se usa la
   // RPC SECURITY DEFINER get_storefront_order_status.
-  const { data, error } = await supabase.rpc('get_storefront_order_status', {
+  const { data, error } = await supabase.value.rpc('get_storefront_order_status', {
     p_order_id: orderId,
   });
   if (error) return null;
@@ -288,7 +297,7 @@ export async function cancelarOrdenSupabase(
   // (fallaba silenciosamente: retornaba true sin actualizar nada).
   // Se usa la RPC SECURITY DEFINER cancel_storefront_order, que valida que
   // la orden esté 'pendiente', sea de WhatsApp y el teléfono coincida.
-  const { data, error } = await supabase.rpc('cancel_storefront_order', {
+  const { data, error } = await supabase.value.rpc('cancel_storefront_order', {
     p_order_id: orderId,
     p_customer_phone: telefonoCliente.replace(/\D/g, ''),
     p_reason: motivo,
