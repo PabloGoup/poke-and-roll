@@ -2,6 +2,34 @@
 
 Ultima actualizacion: 2026-06-11
 
+## 28. Fix de guardado y cálculo de tarifas de despacho
+
+Fecha: 2026-06-11
+
+Problema:
+
+- El panel de configuración mostraba "Error guardando tarifas".
+- La dirección base del local y los rangos de despacho no quedaban persistidos.
+- Al no existir tarifas activas para calcular cobertura, el agente terminaba respondiendo que no había delivery automático para la dirección del cliente.
+
+Causa:
+
+- La persistencia de tarifas usaba operaciones incompatibles con Prisma + Neon HTTP (`$transaction`/`createMany`).
+- El módulo de dirección del agente debía usar las tarifas configuradas por km y la dirección base del local para calcular cobertura real.
+
+Solución:
+
+- `guardarTarifasDespacho()` guarda la dirección del restaurante y luego crea las zonas una por una, sin transacciones no soportadas por Neon HTTP.
+- `resolverCoberturaDespacho()` calcula distancia con Google Maps desde la dirección base del local y cruza contra rangos activos de `zonas_despacho`.
+- `M09_DIRECCION` ya no responde "no llegamos" cuando falta configuración o falla el cálculo; en esos casos deriva a humano para confirmar cobertura/costo.
+- Solo marca fuera de cobertura cuando la dirección fue geocodificada y la distancia queda fuera de todos los rangos activos.
+
+Validación:
+
+- `npm run lint`: OK con warnings preexistentes.
+- `PUT /api/configuracion-comercial/tarifas` en local: OK.
+- `npm run build`: compila, pero la recolección de páginas queda bloqueada por servidores `next dev` activos escribiendo en `.next` durante el build.
+
 ## 27. Flujo completo de atención por WhatsApp
 
 Fecha: 2026-06-11
@@ -347,6 +375,31 @@ Cambios realizados:
 Validacion:
 
 - `npm run lint`: OK con 8 warnings preexistentes en componentes no relacionados.
+
+## 29. Rediseño UX del tarifario de despacho
+
+Fecha: 2026-06-11
+
+Archivos:
+
+- `app/components/commercial-config.tsx`
+- `app/globals.css`
+
+Cambios realizados:
+
+- Se reorganizó el bloque de despacho a domicilio para que sea entendible en pasos: dirección base, resumen de cobertura, creación de rangos y listado de tarifas.
+- Se agregaron indicadores rápidos para saber si existe dirección configurada, cobertura activa y costo mínimo de despacho.
+- Se agregó vista previa de cómo el agente interpretará una tarifa antes de agregarla.
+- El nombre de la zona ahora puede autogenerarse desde el rango de kilómetros si se deja vacío.
+- Se validan rangos inválidos, costos faltantes y tiempos inconsistentes antes de crear una tarifa local.
+- Las tarifas guardadas se muestran como tarjetas con rango, costo, tiempo, estado activo/pausado y acción de eliminación.
+- Se ajustó la vista responsive para que el formulario no quede apretado en móvil o tablet.
+
+Validación:
+
+- `npm run lint`: OK con 14 warnings preexistentes no relacionados.
+- `npx tsc --noEmit`: OK.
+- El dashboard local responde en `localhost:3000`, pero redirige a login para validación visual sin sesión.
 
 ## 27. Rescate de skills e integración WhatsApp → Supabase/POS
 

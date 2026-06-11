@@ -70,6 +70,15 @@ function formatCLP(n: number) {
   return new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(n);
 }
 
+function formatKm(n: number) {
+  return Number.isInteger(n) ? String(n) : n.toFixed(1).replace(".", ",");
+}
+
+function nombreTarifaDesdeRango(minKm: number, maxKm: number) {
+  if (minKm <= 0) return `Hasta ${formatKm(maxKm)} km`;
+  return `${formatKm(minKm)} a ${formatKm(maxKm)} km`;
+}
+
 const accionesIniciales: AccionComercial[] = [
   {
     id: "catalogo-visual",
@@ -171,7 +180,31 @@ export function CommercialConfig() {
 
   const accionesActivas = useMemo(() => acciones.filter((a) => a.activa).length, [acciones]);
   const itemsActivos = useMemo(() => items.filter((item) => item.activo).length, [items]);
-  const tarifasActivas = useMemo(() => tarifas.filter((tarifa) => tarifa.activa).length, [tarifas]);
+  const tarifasActivasLista = useMemo(() => tarifas.filter((tarifa) => tarifa.activa), [tarifas]);
+  const tarifasActivas = tarifasActivasLista.length;
+  const tarifasOrdenadas = useMemo(
+    () => [...tarifas].sort((a, b) => a.distanciaMinKm - b.distanciaMinKm || a.distanciaMaxKm - b.distanciaMaxKm),
+    [tarifas]
+  );
+  const coberturaMaximaKm = tarifasActivasLista.length > 0
+    ? Math.max(...tarifasActivasLista.map((tarifa) => tarifa.distanciaMaxKm))
+    : null;
+  const costoBaseDespacho = tarifasActivasLista.length > 0
+    ? Math.min(...tarifasActivasLista.map((tarifa) => tarifa.costoPesos))
+    : null;
+  const direccionConfigurada = restaurante.direccion.trim().length > 0;
+  const direccionGeocodificada = restaurante.latitud != null && restaurante.longitud != null;
+  const previewNuevaTarifa = useMemo(() => {
+    const minKm = nuevaTarifa.distanciaMinKm ?? 0;
+    const maxKm = nuevaTarifa.distanciaMaxKm;
+    const costo = nuevaTarifa.costoPesos;
+    if (!Number.isFinite(minKm) || maxKm == null || !Number.isFinite(maxKm) || costo == null || !Number.isFinite(costo) || maxKm <= minKm) return null;
+    return {
+      rango: `${formatKm(minKm)}-${formatKm(maxKm)} km`,
+      costo: formatCLP(costo),
+      tiempo: `${nuevaTarifa.tiempoMinMin ?? 30}-${nuevaTarifa.tiempoMaxMin ?? 45} min`
+    };
+  }, [nuevaTarifa]);
   const imagenPrioritaria = imagenes.find((img) => img.prioridadEnvio);
 
   useEffect(() => {
@@ -220,24 +253,41 @@ export function CommercialConfig() {
   }
 
   function agregarTarifa() {
-    const nombre = nuevaTarifa.nombre?.trim();
-    if (!nombre || nuevaTarifa.distanciaMaxKm == null || nuevaTarifa.costoPesos == null) return;
+    const distanciaMinKm = nuevaTarifa.distanciaMinKm ?? 0;
     const distanciaMaxKm = nuevaTarifa.distanciaMaxKm;
     const costoPesos = nuevaTarifa.costoPesos;
+    const tiempoMinMin = nuevaTarifa.tiempoMinMin ?? 30;
+    const tiempoMaxMin = nuevaTarifa.tiempoMaxMin ?? 45;
+
+    if (!Number.isFinite(distanciaMinKm) || distanciaMaxKm == null || !Number.isFinite(distanciaMaxKm) || distanciaMaxKm <= distanciaMinKm) {
+      setStatus("Define un rango valido: el maximo debe ser mayor que el minimo.");
+      return;
+    }
+    if (costoPesos == null || !Number.isFinite(costoPesos) || costoPesos < 0) {
+      setStatus("Define el costo de despacho para esta zona.");
+      return;
+    }
+    if (!Number.isFinite(tiempoMinMin) || !Number.isFinite(tiempoMaxMin) || tiempoMaxMin < tiempoMinMin) {
+      setStatus("El tiempo maximo debe ser mayor o igual al tiempo minimo.");
+      return;
+    }
+
+    const nombre = nuevaTarifa.nombre?.trim() || nombreTarifaDesdeRango(distanciaMinKm, distanciaMaxKm);
     setTarifas((prev) => [
       ...prev,
       {
         id: Date.now().toString(),
         nombre,
-        distanciaMinKm: nuevaTarifa.distanciaMinKm ?? 0,
+        distanciaMinKm,
         distanciaMaxKm,
         costoPesos,
-        tiempoMinMin: nuevaTarifa.tiempoMinMin ?? 30,
-        tiempoMaxMin: nuevaTarifa.tiempoMaxMin ?? 45,
+        tiempoMinMin,
+        tiempoMaxMin,
         activa: nuevaTarifa.activa ?? true
       }
     ]);
-    setNuevaTarifa({ activa: true, distanciaMinKm: 0 });
+    setNuevaTarifa({ activa: true, distanciaMinKm: distanciaMaxKm, tiempoMinMin, tiempoMaxMin });
+    setStatus(`Tarifa "${nombre}" agregada. Guarda las tarifas para aplicarla al agente.`);
   }
 
   function toggleTarifa(id: string) {
@@ -600,75 +650,119 @@ export function CommercialConfig() {
           </button>
         </div>
 
+        <div className="delivery-kpi-row">
+          <article className={`delivery-kpi ${direccionConfigurada ? "ready" : ""}`}>
+            <MapPin size={16} />
+            <div>
+              <span>Direccion base</span>
+              <strong>{direccionConfigurada ? "Configurada" : "Pendiente"}</strong>
+            </div>
+          </article>
+          <article className={`delivery-kpi ${tarifasActivas > 0 ? "ready" : ""}`}>
+            <Truck size={16} />
+            <div>
+              <span>Cobertura activa</span>
+              <strong>{coberturaMaximaKm == null ? "Sin rangos" : `Hasta ${formatKm(coberturaMaximaKm)} km`}</strong>
+            </div>
+          </article>
+          <article className="delivery-kpi">
+            <BadgePercent size={16} />
+            <div>
+              <span>Costo desde</span>
+              <strong>{costoBaseDespacho == null ? "No definido" : formatCLP(costoBaseDespacho)}</strong>
+            </div>
+          </article>
+        </div>
+
         <div className="delivery-address-row">
-          <MapPin size={16} />
-          <label className="config-field">
-            <span>Direccion base del local</span>
+          <div className="delivery-step-marker">1</div>
+          <div className="delivery-address-copy">
+            <strong>Direccion base del local</strong>
+            <p>El agente calcula la distancia desde esta direccion. Guarda para geocodificarla.</p>
+          </div>
+          <label className="config-field delivery-address-field">
+            <span>Direccion completa</span>
             <input
-              placeholder="Ej: Av. Principal 123, comuna"
+              placeholder="Ej: Recoleta 5758, Huechuraba"
               value={restaurante.direccion}
               onChange={(e) => setRestaurante((prev) => ({ ...prev, direccion: e.target.value }))}
             />
           </label>
-          {restaurante.latitud != null && (
-            <span className="geo-pill">
-              {restaurante.latitud.toFixed(4)}, {restaurante.longitud?.toFixed(4)}
-            </span>
-          )}
+          <span className={`geo-pill ${direccionGeocodificada ? "is-ready" : ""}`}>
+            {direccionGeocodificada
+              ? `Geocodificada · ${restaurante.latitud?.toFixed(4)}, ${restaurante.longitud?.toFixed(4)}`
+              : "Pendiente de guardar"}
+          </span>
         </div>
 
-        <div className="quick-edit-form tariff-form">
+        <div className="delivery-section-title">
+          <div className="delivery-step-marker">2</div>
+          <div>
+            <strong>Rangos de despacho</strong>
+            <p>Crea rangos sin solaparlos. Si una direccion queda fuera de estos km, el agente debe escalar a humano.</p>
+          </div>
+        </div>
+
+        <div className="quick-edit-form tariff-form tariff-builder">
           <label className="config-field tariff-name">
-            <span>Zona</span>
+            <span>Nombre visible</span>
             <input
-              placeholder="Ej: Zona centro"
+              placeholder="Ej: Local / Zona cercana"
               value={nuevaTarifa.nombre ?? ""}
               onChange={(e) => setNuevaTarifa((prev) => ({ ...prev, nombre: e.target.value }))}
             />
           </label>
           <label className="config-field">
-            <span>Min km</span>
+            <span>Desde km</span>
             <input
               type="number" placeholder="0" min={0} step={0.5}
               value={nuevaTarifa.distanciaMinKm ?? ""}
-              onChange={(e) => setNuevaTarifa((prev) => ({ ...prev, distanciaMinKm: parseFloat(e.target.value) || 0 }))}
+              onChange={(e) => setNuevaTarifa((prev) => ({ ...prev, distanciaMinKm: e.target.value === "" ? undefined : parseFloat(e.target.value) }))}
             />
           </label>
           <label className="config-field">
-            <span>Max km</span>
+            <span>Hasta km</span>
             <input
               type="number" placeholder="3" min={0} step={0.5}
               value={nuevaTarifa.distanciaMaxKm ?? ""}
-              onChange={(e) => setNuevaTarifa((prev) => ({ ...prev, distanciaMaxKm: parseFloat(e.target.value) || 0 }))}
+              onChange={(e) => setNuevaTarifa((prev) => ({ ...prev, distanciaMaxKm: e.target.value === "" ? undefined : parseFloat(e.target.value) }))}
             />
           </label>
           <label className="config-field">
-            <span>Costo</span>
+            <span>Costo $</span>
             <input
               type="number" placeholder="2500" min={0} step={100}
               value={nuevaTarifa.costoPesos ?? ""}
-              onChange={(e) => setNuevaTarifa((prev) => ({ ...prev, costoPesos: parseInt(e.target.value) || 0 }))}
+              onChange={(e) => setNuevaTarifa((prev) => ({ ...prev, costoPesos: e.target.value === "" ? undefined : parseInt(e.target.value) }))}
             />
           </label>
           <label className="config-field">
-            <span>Min</span>
+            <span>Min espera</span>
             <input
               type="number" placeholder="30" min={0}
               value={nuevaTarifa.tiempoMinMin ?? ""}
-              onChange={(e) => setNuevaTarifa((prev) => ({ ...prev, tiempoMinMin: parseInt(e.target.value) || 0 }))}
+              onChange={(e) => setNuevaTarifa((prev) => ({ ...prev, tiempoMinMin: e.target.value === "" ? undefined : parseInt(e.target.value) }))}
             />
           </label>
           <label className="config-field">
-            <span>Max</span>
+            <span>Max espera</span>
             <input
               type="number" placeholder="45" min={0}
               value={nuevaTarifa.tiempoMaxMin ?? ""}
-              onChange={(e) => setNuevaTarifa((prev) => ({ ...prev, tiempoMaxMin: parseInt(e.target.value) || 0 }))}
+              onChange={(e) => setNuevaTarifa((prev) => ({ ...prev, tiempoMaxMin: e.target.value === "" ? undefined : parseInt(e.target.value) }))}
             />
           </label>
           <button className="primary-button" onClick={agregarTarifa} type="button">
             <Plus size={14} /> Agregar
           </button>
+        </div>
+        <div className="tariff-preview">
+          <span>Vista previa para el agente</span>
+          <strong>
+            {previewNuevaTarifa
+              ? `${previewNuevaTarifa.rango} · ${previewNuevaTarifa.costo} · ${previewNuevaTarifa.tiempo}`
+              : "Completa hasta km y costo para previsualizar la respuesta."}
+          </strong>
         </div>
 
         {tarifas.length === 0 ? (
@@ -678,22 +772,36 @@ export function CommercialConfig() {
             <p>Aún no hay tarifas configuradas. Agrega rangos de km con su costo de despacho.</p>
           </div>
         ) : (
-          <div className="quick-edit-list">
-            {tarifas.map((t) => (
-              <article className="quick-edit-item" key={t.id}>
-                <div>
-                  <span>tarifa km</span>
-                  <strong>{t.nombre}</strong>
-                  <p>{t.distanciaMinKm}–{t.distanciaMaxKm} km · {t.tiempoMinMin}-{t.tiempoMaxMin} min</p>
+          <div className="delivery-rate-list">
+            {tarifasOrdenadas.map((t) => (
+              <article className={`delivery-rate-card${t.activa ? "" : " is-inactive"}`} key={t.id}>
+                <div className="delivery-rate-main">
+                  <div className="delivery-rate-icon"><Truck size={15} /></div>
+                  <div>
+                    <span>Rango {formatKm(t.distanciaMinKm)}-{formatKm(t.distanciaMaxKm)} km</span>
+                    <strong>{t.nombre}</strong>
+                    <p>El agente usara esta tarifa cuando la direccion del cliente caiga dentro del rango.</p>
+                  </div>
                 </div>
-                <strong className="quick-price">{formatCLP(t.costoPesos)}</strong>
-                <label className="mini-toggle">
-                  <input checked={t.activa} onChange={() => toggleTarifa(t.id)} type="checkbox" />
-                  Activa
-                </label>
-                <button className="icon-button" onClick={() => eliminarTarifa(t.id)} type="button">
-                  <Trash2 size={12} />
-                </button>
+                <div className="delivery-rate-metrics">
+                  <div className="delivery-rate-chip">
+                    <span>Costo</span>
+                    <strong>{formatCLP(t.costoPesos)}</strong>
+                  </div>
+                  <div className="delivery-rate-chip">
+                    <span>Tiempo</span>
+                    <strong>{t.tiempoMinMin}-{t.tiempoMaxMin} min</strong>
+                  </div>
+                </div>
+                <div className="delivery-rate-actions">
+                  <label className="mini-toggle delivery-rate-status">
+                    <input checked={t.activa} onChange={() => toggleTarifa(t.id)} type="checkbox" />
+                    {t.activa ? "Activa" : "Pausada"}
+                  </label>
+                  <button className="icon-button" aria-label={`Eliminar tarifa ${t.nombre}`} onClick={() => eliminarTarifa(t.id)} type="button">
+                    <Trash2 size={12} />
+                  </button>
+                </div>
               </article>
             ))}
           </div>

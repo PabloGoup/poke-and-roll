@@ -447,6 +447,10 @@ Crear pedido delivery.
 
 Validar:
 
+- En Configuracion -> Despacho a domicilio, guardar primero la direccion base del local y al menos una tarifa activa.
+- Volver a cargar la pagina y confirmar que la direccion y las tarifas siguen visibles.
+- Si el cliente entrega una direccion dentro del rango activo, el agente debe informar costo y tiempo estimado.
+- Si falta configuracion, coordenadas o calculo, el agente debe derivar a humano para confirmar cobertura; no debe decir por defecto que no hay delivery.
 - El agente no dice "va en camino" cuando cocina marca `listo`.
 - El mensaje correcto debe ser que el pedido está listo y se coordinará despacho.
 - El costo de despacho debe venir de la zona configurada.
@@ -491,6 +495,16 @@ Revisar:
 - UUIDs de productos
 - `WHATSAPP_BOT_CASHIER_ID`
 - cobertura de comuna
+
+### Falla guardado de tarifas de despacho
+
+Revisar:
+
+- `PUT /api/configuracion-comercial/tarifas` debe responder `{ ok: true }`.
+- `zonas_despacho` debe tener al menos una tarifa activa con `distancia_min_km` y `distancia_max_km`.
+- `configuracion_restaurante` debe tener `direccion` y, si hay `GOOGLE_MAPS_API_KEY`, `latitud`/`longitud`.
+- No usar `$transaction` ni `createMany` para este guardado con Prisma + Neon HTTP.
+- Despues de desplegar cambios, volver a guardar la direccion y tarifas desde `https://goupsoluciones.cl/dashboard`.
 
 ### Falla envío WhatsApp
 

@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
+
 /**
  * Configura credenciales WhatsApp por local sin imprimir secretos.
  *
