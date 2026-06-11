@@ -31,10 +31,17 @@ function esAfirmacion(texto: string) {
   return /^(si|sí|sip|sipo|correcto|exacto|dale|ok|okay|ese|esa|esa misma|ese mismo)[\s.!]*$/.test(n);
 }
 
-function cantidadDesdeTexto(texto: string) {
+// Tamaños de promo (parte del nombre del producto, no indican cantidad)
+const TAMANOS_PROMO = new Set([20, 30, 40, 50, 60, 70, 80, 100, 120, 140, 200]);
+
+function cantidadDesdeTexto(texto: string, excluirNumeros?: Set<number>) {
   const n = normalizar(texto);
-  const numero = n.match(/\b(\d+)\b/);
-  if (numero) return Number(numero[1]);
+  // Busca TODOS los números y retorna el primero que no sea un tamaño de promo excluido
+  const numeros = [...n.matchAll(/\b(\d+)\b/g)].map(m => Number(m[1]));
+  for (const num of numeros) {
+    if (excluirNumeros && excluirNumeros.has(num)) continue;
+    return num;
+  }
   if (/\b(una|un)\b/.test(n)) return 1;
   if (/\b(dos)\b/.test(n)) return 2;
   if (/\b(tres)\b/.test(n)) return 3;
@@ -49,15 +56,15 @@ function detectarPromoComun(texto: string): ItemPedidoDetectado | null {
   if (!pidePedido && !/\b(30|40|50|70|80|100|140|200)\b/.test(n)) return null;
 
   if (/\b30\b/.test(n) && /\b(frita|fritas|frito|fritos|friya|friyas|fria|frias)\b/.test(n)) {
-    return { nombre: '30 piezas fritas', cantidad: cantidadDesdeTexto(n) };
+    return { nombre: '30 piezas fritas', cantidad: cantidadDesdeTexto(n, TAMANOS_PROMO) };
   }
 
   if (/\b30\b/.test(n) && /\b(mixta|mixtas|mixto|mixtos)\b/.test(n)) {
-    return { nombre: '30 piezas mixtas', cantidad: cantidadDesdeTexto(n) };
+    return { nombre: '30 piezas mixtas', cantidad: cantidadDesdeTexto(n, TAMANOS_PROMO) };
   }
 
   if (/\b30\b/.test(n) && /\b(premium)\b/.test(n)) {
-    return { nombre: '30 piezas premium', cantidad: cantidadDesdeTexto(n) };
+    return { nombre: '30 piezas premium', cantidad: cantidadDesdeTexto(n, TAMANOS_PROMO) };
   }
 
   return null;
