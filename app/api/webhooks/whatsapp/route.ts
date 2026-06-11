@@ -146,8 +146,11 @@ export async function POST(request: Request) {
 
   // ── Pipeline modular ───────────────────────────────────────────────────
 
-  // Cargar sesión activa
-  const sesionDb = await obtenerSesionPedido(conversacion.id);
+  // Cargar sesión activa — ignorar sesiones completadas/canceladas
+  const sesionDbRaw = await obtenerSesionPedido(conversacion.id);
+  const sesionDb = sesionDbRaw && !['completada', 'cancelada'].includes(sesionDbRaw.estadoSesion)
+    ? sesionDbRaw
+    : null;
   const sesionCtx = sesionDb ? mapearSesionACtx(sesionDb) : null;
 
   // Evaluar guards (cancelación, timeout, max intentos)
