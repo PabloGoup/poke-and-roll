@@ -142,6 +142,12 @@ export async function POST(req: NextRequest) {
       // No fallar el webhook por error del dispatcher
       console.error('[PedidoListo] Error activando M12:', err);
     }
+
+    // Cerrar la sesión: el ciclo del pedido terminó para el bot
+    await prisma.sesionPedido.update({
+      where: { id: sesion.id },
+      data: { moduloActual: 'ENTREGA', estadoSesion: 'completada' },
+    }).catch(() => null);
   }
 
   return Response.json({ ok: true });

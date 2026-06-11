@@ -100,6 +100,7 @@ export interface MediaAEnviar {
 export interface RespuestaModulo {
   respuesta: string;                         // texto que se envía al cliente por WhatsApp
   moduloSiguiente?: ModuloAgente;            // transición explícita
+  moduloEjecutado?: ModuloAgente;            // módulo que generó esta respuesta (lo setea el dispatcher)
   actualizarSesion?: Partial<SesionPedidoCtx>;
   requiereHumano?: boolean;
   mediaAEnviar?: MediaAEnviar[];            // imágenes/docs a enviar antes del texto

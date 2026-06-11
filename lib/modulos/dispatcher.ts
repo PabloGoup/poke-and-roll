@@ -196,6 +196,60 @@ async function respuestaContenidoItemCarrito(sesion: SesionPedidoCtx): Promise<R
   };
 }
 
+// --------------- Resolución de afirmaciones cortas ----------
+// Bug crítico detectado en producción: "¿Te refieres a la Promo 30 fritas?" → "Si"
+// → el agente saludaba de nuevo porque la afirmación llegaba sin contexto.
+// Aquí reescribimos el mensaje corto usando la última pregunta del agente.
+
+function esAfirmacionCorta(texto: string) {
+  const n = normalizar(texto).replace(/[^\w\s]/g, '').trim();
+  return ['si', 'sii', 'siii', 'sip', 'ya', 'ok', 'oka', 'okey', 'dale', 'bueno', 'eso', 'esa', 'ese', 'claro', 'correcto', 'exacto', 'asi es', 'me refiero a esa'].includes(n);
+}
+
+function obtenerUltimaPreguntaAgente(historial?: { rol: 'cliente' | 'agente'; texto: string }[]) {
+  if (!historial?.length) return null;
+  for (let i = historial.length - 1; i >= 0; i--) {
+    const m = historial[i];
+    if (m.rol === 'agente' && m.texto.includes('?')) return m.texto;
+  }
+  return null;
+}
+
+// Extrae el producto de preguntas tipo "¿Te refieres a la Promo 30 Piezas Fritas, verdad?"
+function extraerProductoDeAclaracion(pregunta: string): string | null {
+  const patrones = [
+    /te refieres a (?:la |el |un |una )?([^,?¿]+?)(?:,| ¿|\?|$)/i,
+    /quieres decir (?:la |el )?([^,?¿]+?)(?:,| ¿|\?|$)/i,
+  ];
+  for (const patron of patrones) {
+    const match = pregunta.match(patron);
+    if (match?.[1]) return match[1].trim().replace(/[¿?]/g, '').replace(/\s+(verdad|cierto|no)$/i, '').trim();
+  }
+  return null;
+}
+
+function resolverAfirmacionConContexto(
+  msg: MensajeDespacho,
+  sesion: SesionPedidoCtx | null
+): MensajeDespacho {
+  if (!esAfirmacionCorta(msg.texto)) return msg;
+  const ultimaPregunta = obtenerUltimaPreguntaAgente(msg.historial);
+  if (!ultimaPregunta) return msg;
+
+  const producto = extraerProductoDeAclaracion(ultimaPregunta);
+  if (producto && !sesion?.items?.length) {
+    // El cliente confirmó una aclaración de producto y el carrito está vacío
+    // → convertir en pedido directo
+    return { ...msg, texto: `quiero ${producto}` };
+  }
+
+  // Afirmación genérica: inyectar la pregunta como contexto para que el módulo la interprete
+  return {
+    ...msg,
+    texto: `sí (el cliente responde afirmativamente a tu pregunta anterior: "${ultimaPregunta.slice(0, 200)}")`,
+  };
+}
+
 async function resolverModuloDeterministico(
   msg: MensajeDespacho,
   sesion: SesionPedidoCtx | null,
@@ -265,17 +319,20 @@ async function resolverModuloDeterministico(
 // --------------- Función principal de despacho --------------
 
 export async function despacharModulo(
-  msg: MensajeDespacho,
+  msgOriginal: MensajeDespacho,
   sesion: SesionPedidoCtx | null,
   moduloObjetivo?: ModuloAgente
 ): Promise<RespuestaModulo> {
+  // Resolver afirmaciones cortas ("si", "ok", "dale") contra la última pregunta del agente
+  const msg = resolverAfirmacionConContexto(msgOriginal, sesion);
+
   // Determinar módulo a ejecutar
   const moduloActual: ModuloAgente =
     moduloObjetivo ?? sesion?.moduloActual ?? 'BIENVENIDA';
 
   const deterministico = await resolverModuloDeterministico(msg, sesion, moduloActual);
   if (deterministico.respuesta) {
-    return deterministico.respuesta;
+    return { ...deterministico.respuesta, moduloEjecutado: moduloActual };
   }
   const moduloEjecucion = deterministico.modulo ?? moduloActual;
 
@@ -354,7 +411,7 @@ export async function despacharModulo(
     console.error('[dispatcher] No se pudo guardar log:', logErr);
   });
 
-  return respuesta;
+  return { ...respuesta, moduloEjecutado: moduloEjecucion };
 }
 
 export const despachar = despacharModulo;

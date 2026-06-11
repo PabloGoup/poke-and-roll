@@ -63,3 +63,16 @@ Hay 25 specs operativas en `agents/`, numeradas `00` a `24`. La validación fina
 - Las órdenes WhatsApp deben crearse con `source = 'whatsapp'` y `cashier_id` de perfil técnico si está disponible.
 - No se deben dejar tokens, service role keys ni webhook secrets reales en documentación.
 - El bloqueo inmediato para notificación real es cargar credenciales WhatsApp en `Local.waPhoneId` y `Local.waToken` o configurar fallback global válido.
+
+## Log del Director — 2026-06-11 (Oleada 5 + fix pérdida de contexto)
+
+- Oleadas 0-6 completadas. Los 3 subagentes de Oleada 5 fallaron por límite de sesión; el Director completó el trabajo directamente.
+- **Bug crítico de producción corregido** (conversación real reportada por el usuario): afirmaciones cortas ("si", "ok", "dale") perdían contexto y el agente volvía a saludar.
+  - `dispatcher.ts`: nueva `resolverAfirmacionConContexto()` — reescribe afirmaciones cortas usando la última pregunta del agente del historial. Si la pregunta era aclaración de producto ("¿Te refieres a la Promo 30 Fritas?") y el carrito está vacío → se convierte en pedido directo.
+  - `dispatcher.ts`: `RespuestaModulo.moduloEjecutado` — el dispatcher reporta qué módulo ejecutó.
+  - `webhooks/whatsapp/route.ts`: persiste SIEMPRE el módulo donde quedó la conversación (crea sesión al salir de BIENVENIDA) y refresca `ultimaActividadEn` en cada mensaje.
+  - `contexto-comercial.ts`: regla CRÍTICA en TONO_Y_ESTILO — nunca re-saludar con historial previo; "sí" continúa desde donde quedó.
+- `webhooks/pedido-listo/route.ts`: ahora cierra la sesión (`completada`) tras notificar.
+- Documento de flujo canónico del usuario guardado en `references/flujo-atencion-whatsapp.md` (30 flujos + matriz de decisiones).
+- Build de producción Next.js: ✅ pasa. TypeScript: ✅ limpio.
+- Pendiente: Oleada 7 (pruebas E2E) + acciones del usuario (service role key, SQL en Supabase dashboard, Database Webhook, GOOGLE_MAPS_API_KEY).

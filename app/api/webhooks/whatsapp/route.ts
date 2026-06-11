@@ -266,7 +266,17 @@ export async function POST(request: Request) {
     const updates: Record<string, unknown> = {};
     if (resultado.actualizarSesion) Object.assign(updates, resultado.actualizarSesion);
     if (resultado.moduloSiguiente) updates.moduloActual = resultado.moduloSiguiente;
-    if (Object.keys(updates).length > 0) {
+
+    // FIX pérdida de contexto: persistir SIEMPRE el módulo donde quedó la conversación.
+    // Si el módulo ejecutado no es BIENVENIDA (ej. PEDIDOS preguntó una aclaración),
+    // crear/actualizar la sesión para que el próximo mensaje ("si", "esa") llegue
+    // al módulo correcto y no vuelva a saludar desde cero.
+    if (!updates.moduloActual && resultado.moduloEjecutado && resultado.moduloEjecutado !== "BIENVENIDA") {
+      updates.moduloActual = resultado.moduloEjecutado;
+    }
+
+    // Refrescar ultimaActividadEn aunque no haya otros cambios (evita timeouts falsos)
+    if (Object.keys(updates).length > 0 || sesionDb) {
       await upsertSesionPedido(conversacion.id, updates as Parameters<typeof upsertSesionPedido>[1]);
     }
 
