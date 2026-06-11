@@ -7,6 +7,12 @@
 
 import type { MensajeDespacho, RespuestaModulo, SesionPedidoCtx } from './types';
 
+// Palabras que indican inicio de una conversación nueva (cerrar sesión actual)
+const palabrasNuevoInicio = [
+  'hola', 'buenos', 'buenas', 'buen dia', 'buendia', 'hi', 'hey',
+  'quiero pedir', 'nuevo pedido', 'otra vez', 'quiero otro',
+];
+
 // Palabras que indican una consulta del cliente esperando su pedido
 const palabrasConsulta = [
   'cuánto', 'cuanto', 'tiempo', 'demora', 'tarda', 'cuando', 'cuándo',
@@ -121,7 +127,19 @@ export async function ejecutar(
     };
   }
 
-  // Mensaje genérico (saludo, etc.) → confirmar y permanecer en DAR_GRACIAS
+  // Detectar nuevo inicio de conversación → cerrar sesión actual y empezar de nuevo
+  const nTexto = msg.texto.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+  const esNuevoInicio = palabrasNuevoInicio.some(p => nTexto === p || nTexto.startsWith(p + ' ') || nTexto.startsWith(p + ','));
+
+  if (esNuevoInicio) {
+    return {
+      respuesta: `¡Hola de nuevo! ¿En qué te puedo ayudar?`,
+      moduloSiguiente: 'BIENVENIDA',
+      actualizarSesion: { estadoSesion: 'completada' },
+    };
+  }
+
+  // Mensaje genérico → confirmar y permanecer en DAR_GRACIAS
   return {
     respuesta: `Recibido. Si tienes alguna duda sobre tu pedido ${numero}, no dudes en escribirme.`,
   };
