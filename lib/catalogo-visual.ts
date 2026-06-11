@@ -15,18 +15,25 @@ function resolverUrlPublica(url: string): string {
 
 export function detectarIntencionVisual(texto: string): IntencionVisual | null {
   const n = normalizar(texto);
+  const solicitaVer =
+    /\b(enviar|envia|envíame|enviame|manda|mandame|mándame|mostrar|muestrame|muéstrame|ver|pasame|pásame|necesito|quiero ver|tienes|tienen|hay|cuales|cuáles)\b/.test(n)
+    || n.includes("me puedes enviar")
+    || n.includes("me mandas")
+    || n.includes("solo las")
+    || n.includes("solo los")
+    || n.includes("solo la");
 
   const pidePromos = /\b(promo|promos|promocion|promociones|oferta|ofertas)\b/.test(n);
-  if (pidePromos) return "promocion";
+  if (pidePromos && solicitaVer) return "promocion";
 
   const pidePokes = /\b(poke|pokes|gohan|gohans|bowl|bowls)\b/.test(n);
-  if (pidePokes) return "pokes_gohan";
+  if (pidePokes && solicitaVer) return "pokes_gohan";
 
   const pideHandrolls = /\b(hand\s?roll|handroll|handrolls)\b/.test(n);
-  if (pideHandrolls) return "handrolls";
+  if (pideHandrolls && solicitaVer) return "handrolls";
 
   const pideRolls = /\b(roll|rolls|sushi|piezas)\b/.test(n);
-  if (pideRolls) return "rolls";
+  if (pideRolls && solicitaVer) return "rolls";
 
   const pideCatalogo =
     /\b(menu|carta|catalogo|precios)\b/.test(n) ||
@@ -45,20 +52,11 @@ function coincidePorNombre(nombre: string, intencion: IntencionVisual) {
   return false;
 }
 
-function captionPorIntencion(intencion: IntencionVisual) {
-  if (intencion === "promocion") return "Promociones vigentes.";
-  if (intencion === "pokes_gohan") return "Opciones de pokes y gohan.";
-  if (intencion === "rolls") return "Opciones de rolls.";
-  if (intencion === "handrolls") return "Opciones de hand rolls.";
-  return "Carta completa.";
-}
-
 function fallbackCatalogoPdf(): MediaAEnviar {
   return {
     tipo: "documento",
     url: resolverUrlPublica("/api/catalogo/pdf"),
     nombre: "Carta Poke & Roll.pdf",
-    caption: "Carta completa.",
   };
 }
 
@@ -89,11 +87,11 @@ export async function cargarMediaCatalogoVisual(intencion: IntencionVisual): Pro
     seleccion = fuente.filter((img) => img.tipo === "catalogo" || img.prioridadEnvio);
   }
 
-  const media: MediaAEnviar[] = seleccion.slice(0, intencion === "catalogo" ? 4 : 3).map((img) => ({
+  const limite = intencion === "catalogo" ? 1 : 3;
+  const media: MediaAEnviar[] = seleccion.slice(0, limite).map((img) => ({
     tipo: img.url.toLowerCase().includes(".pdf") || img.url.includes("/api/catalogo/pdf") ? "documento" as const : "imagen" as const,
     url: resolverUrlPublica(img.url),
     nombre: img.nombre,
-    caption: captionPorIntencion(intencion),
   }));
 
   return media.length > 0 ? media : [fallbackCatalogoPdf()];

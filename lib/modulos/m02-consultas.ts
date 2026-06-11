@@ -131,6 +131,17 @@ export async function ejecutar(
   const solicitudVisual = detectarIntencionVisual(msg.texto);
   const mediaAEnviar: MediaAEnviar[] = solicitudVisual ? await cargarMediaCatalogoVisual(solicitudVisual).catch(() => []) : [];
 
+  if (solicitudVisual && mediaAEnviar.length > 0) {
+    const respuesta =
+      solicitudVisual === 'promocion'
+        ? 'Te envío las promociones vigentes. ¿Quieres que te ayude a elegir una?'
+        : solicitudVisual === 'catalogo'
+          ? 'Te envío la carta. Si buscas algo específico, puedo ayudarte a elegir.'
+          : 'Te envío esas opciones. ¿Quieres que te ayude a armar el pedido?';
+
+    return { respuesta, mediaAEnviar };
+  }
+
   // Cargar catálogo de productos si la consulta lo requiere (precio, producto, promo, recomendación)
   let catalogoTexto = '';
   if (esSolicitudProductos(msg.texto)) {

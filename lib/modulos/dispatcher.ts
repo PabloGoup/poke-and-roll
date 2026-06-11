@@ -10,7 +10,7 @@ import {
   type SesionPedidoCtx,
   TRANSICIONES_VALIDAS,
 } from './types';
-import { pareceReclamo } from './flujo-utils';
+import { construirResumenPedido, esCierreDePedido, normalizarTexto, pareceReclamo } from './flujo-utils';
 
 // --------------- Tipo de handler ----------------------------
 
@@ -111,6 +111,18 @@ function respuestaPedidoYaRegistrado(sesion: SesionPedidoCtx): RespuestaModulo {
   };
 }
 
+function esNoAntePreguntaDeAgregar(texto: string) {
+  const n = normalizarTexto(texto);
+  return n === 'no' || n === 'nop' || n === 'no gracias';
+}
+
+function respuestaCerrarCarrito(sesion: SesionPedidoCtx): RespuestaModulo {
+  return {
+    respuesta: `Perfecto, tengo esto anotado:\n${construirResumenPedido(sesion)}\n\n¿Confirmas que el pedido está correcto?`,
+    moduloSiguiente: 'CONFIRMACION',
+  };
+}
+
 function resolverModuloDeterministico(
   msg: MensajeDespacho,
   sesion: SesionPedidoCtx | null,
@@ -122,6 +134,10 @@ function resolverModuloDeterministico(
 
   if (sesion?.items?.length && clienteDiceQueYaPidio(msg.texto)) {
     return { respuesta: respuestaPedidoYaRegistrado(sesion) };
+  }
+
+  if (sesion?.items?.length && (esCierreDePedido(msg.texto) || esNoAntePreguntaDeAgregar(msg.texto))) {
+    return { respuesta: respuestaCerrarCarrito(sesion) };
   }
 
   if (sesion?.items?.length && esModalidadEntrega(msg.texto)) {

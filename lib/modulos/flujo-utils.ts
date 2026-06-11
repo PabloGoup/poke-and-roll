@@ -56,6 +56,9 @@ export function esCierreDePedido(texto: string) {
   const n = normalizarTexto(texto);
   return n.includes('eso es todo')
     || n.includes('solo eso')
+    || n.includes('quiero solo eso')
+    || n.includes('no, solo eso')
+    || n.includes('no gracias, solo eso')
     || n.includes('nada mas')
     || n.includes('nada más')
     || n.includes('ya esta')
@@ -86,4 +89,3 @@ export function clasificarTipoReclamo(texto: string) {
   if (/\b(devolucion|devolución|reembolso)\b/.test(n)) return 'reembolso';
   return 'atencion';
 }
-

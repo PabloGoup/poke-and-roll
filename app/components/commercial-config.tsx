@@ -405,7 +405,8 @@ export function CommercialConfig() {
     setSaving(true);
     setStatus("Guardando configuracion...");
     try {
-      const res = await fetch("/api/configuracion-comercial", {
+      const [res, resTarifas] = await Promise.all([
+        fetch("/api/configuracion-comercial", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -427,9 +428,17 @@ export function CommercialConfig() {
           })),
           imagenes
         })
-      });
+        }),
+        fetch("/api/configuracion-comercial/tarifas", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tarifas, restaurante })
+        })
+      ]);
       const data = await res.json();
+      const dataTarifas = await resTarifas.json();
       if (!data.ok) throw new Error(data.error ?? "No se pudo guardar");
+      if (!dataTarifas.ok) throw new Error(dataTarifas.error ?? "No se pudieron guardar las tarifas");
       setStatus("Configuracion guardada");
       await cargarConfiguracion();
     } catch (error) {

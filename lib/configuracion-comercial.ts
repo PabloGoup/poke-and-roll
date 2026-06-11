@@ -1,6 +1,4 @@
 import { prisma } from "@/lib/prisma";
-import { readdir } from "node:fs/promises";
-import path from "node:path";
 
 export type ReglaComercialInput = {
   id: string;
@@ -46,34 +44,6 @@ export type CatalogoVisualInput = {
   prioridadEnvio: boolean;
   activo: boolean;
 };
-
-async function obtenerCatalogoPdfDocs(): Promise<CatalogoVisualInput | null> {
-  try {
-    const docsDir = path.join(process.cwd(), "docs");
-    const archivos = await readdir(docsDir);
-    const pdf = archivos
-      .filter((archivo) => archivo.toLowerCase().endsWith(".pdf"))
-      .sort((a, b) => {
-        const prioridadA = /catalogo|catalog|menu|men[uú]/i.test(a) ? 0 : 1;
-        const prioridadB = /catalogo|catalog|menu|men[uú]/i.test(b) ? 0 : 1;
-        return prioridadA - prioridadB || a.localeCompare(b);
-      })[0];
-
-    if (!pdf) return null;
-
-    return {
-      id: "catalogo-completo-docs-pdf",
-      nombre: pdf,
-      url: "/api/catalogo/pdf",
-      storagePath: `docs:${pdf}`,
-      tipo: "catalogo",
-      prioridadEnvio: true,
-      activo: true
-    };
-  } catch {
-    return null;
-  }
-}
 
 export const reglasComercialesDefault: ReglaComercialInput[] = [
   {
@@ -166,20 +136,15 @@ export async function asegurarReglasComerciales() {
 export async function obtenerConfiguracionComercial() {
   await asegurarReglasComerciales();
 
-  const [reglas, items, imagenes, catalogoPdf, tarifas, restaurante] = await Promise.all([
+  const [reglas, items, imagenes, tarifas, restaurante] = await Promise.all([
     prisma.reglaComercialAgente.findMany({ orderBy: [{ prioridad: "asc" }, { titulo: "asc" }] }),
     prisma.itemComercialDestacado.findMany({ orderBy: { creadoEn: "desc" } }),
     prisma.catalogoVisualAgente.findMany({ where: { activo: true, NOT: { storagePath: { startsWith: "local:" } } }, orderBy: [{ prioridadEnvio: "desc" }, { creadoEn: "desc" }] }),
-    obtenerCatalogoPdfDocs(),
     prisma.zonaDespacho.findMany({ orderBy: { costo: "asc" } }),
     prisma.configuracionRestaurante.findUnique({ where: { id: "restaurante" } })
   ]);
 
-  const catalogos = catalogoPdf
-    ? [catalogoPdf, ...imagenes.map((img) => ({ ...img, prioridadEnvio: false }))]
-    : imagenes;
-
-  return { reglas, items, imagenes: catalogos, tarifas, restaurante };
+  return { reglas, items, imagenes, tarifas, restaurante };
 }
 
 export async function guardarTarifasDespacho(
@@ -196,24 +161,26 @@ export async function guardarTarifasDespacho(
     distanciaMaxKm: t.distanciaMaxKm
   }));
 
-  await prisma.configuracionRestaurante.upsert({
-    where: { id: "restaurante" },
-    create: {
-      id: "restaurante",
-      direccion: restaurante.direccion,
-      latitud: restaurante.latitud ?? null,
-      longitud: restaurante.longitud ?? null
-    },
-    update: {
-      direccion: restaurante.direccion,
-      latitud: restaurante.latitud ?? null,
-      longitud: restaurante.longitud ?? null
+  await prisma.$transaction(async (tx) => {
+    await tx.configuracionRestaurante.upsert({
+      where: { id: "restaurante" },
+      create: {
+        id: "restaurante",
+        direccion: restaurante.direccion,
+        latitud: restaurante.latitud ?? null,
+        longitud: restaurante.longitud ?? null
+      },
+      update: {
+        direccion: restaurante.direccion,
+        latitud: restaurante.latitud ?? null,
+        longitud: restaurante.longitud ?? null
+      }
+    });
+
+    await tx.zonaDespacho.deleteMany();
+
+    if (zonaData.length > 0) {
+      await tx.zonaDespacho.createMany({ data: zonaData });
     }
   });
-
-  await prisma.zonaDespacho.deleteMany();
-
-  for (const zona of zonaData) {
-    await prisma.zonaDespacho.create({ data: zona });
-  }
 }

@@ -16,6 +16,11 @@ const PALABRAS_CANCELAR = [
   'me arrepentí', 'me arrepenti',
 ];
 
+const PATRONES_CIERRE_PEDIDO = [
+  'solo eso', 'eso es todo', 'nada mas', 'nada más', 'quiero solo eso',
+  'no, solo eso', 'no gracias, solo eso',
+];
+
 const TIMEOUT_MINUTOS: Partial<Record<ModuloAgente, number>> = {
   PEDIDOS: 10,
   ORDEN_COMPRA: 5,
@@ -42,6 +47,7 @@ function normalizar(texto: string): string {
 export function detectarCancelacion(texto: string, modulo: ModuloAgente): boolean {
   if (!MODULOS_CANCELABLES.includes(modulo)) return false;
   const norm = normalizar(texto);
+  if (PATRONES_CIERRE_PEDIDO.some((p) => norm.includes(normalizar(p)))) return false;
   return PALABRAS_CANCELAR.some(p => norm.includes(normalizar(p)));
 }
 
