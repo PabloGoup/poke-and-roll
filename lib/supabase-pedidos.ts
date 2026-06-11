@@ -1,4 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
+// Node 20 no tiene WebSocket nativo — supabase-js lo requiere para Realtime.
+// En Next.js (backend) no necesitamos Realtime; usamos ws como transporte.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const ws = require('ws') as typeof WebSocket;
 import type {
   ItemCarritoWA,
   ProductoResuelto,
@@ -24,7 +28,12 @@ type CatalogoProductoRpc = {
 
 const supabase = createClient(
   process.env.SUPABASE_PEDIDOS_URL!,
-  process.env.SUPABASE_PEDIDOS_ANON_KEY!
+  process.env.SUPABASE_PEDIDOS_ANON_KEY!,
+  {
+    realtime: {
+      transport: ws,
+    },
+  }
 );
 
 // Cache en memoria con TTL 5 minutos
