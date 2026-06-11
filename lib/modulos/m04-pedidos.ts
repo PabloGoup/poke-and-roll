@@ -8,6 +8,7 @@ import { PROMPT_PEDIDOS } from './prompts/m04';
 import { obtenerCatalogoProductos, resolverItemsCarrito } from '@/lib/supabase-pedidos';
 import { verificarHorario } from './horarios';
 import { prisma } from '@/lib/prisma';
+import { construirResumenPedido, esCierreDePedido } from './flujo-utils';
 
 const FALLBACK: RespuestaModulo = {
   respuesta: 'Perdona, tuve un problema técnico. ¿Puedes repetir lo que necesitas?',
@@ -87,6 +88,13 @@ export async function ejecutar(
 
   // Construir items actuales del carrito
   const itemsActuales = sesion?.items ?? [];
+  if (itemsActuales.length > 0 && esCierreDePedido(msg.texto)) {
+    return {
+      respuesta: `Perfecto, tengo esto anotado:\n${construirResumenPedido({ ...sesion!, items: itemsActuales })}\n\n¿Confirmas que el pedido está correcto?`,
+      moduloSiguiente: 'CONFIRMACION',
+    };
+  }
+
   const carritoTexto = itemsActuales.length > 0
     ? `Carrito actual:\n${itemsActuales.map(i => `- ${i.quantity}x ${i.productName}${i.notes ? ` (${i.notes})` : ''}: $${(i.unitPrice * i.quantity).toLocaleString('es-CL')}`).join('\n')}`
     : 'Carrito vacío.';

@@ -176,6 +176,7 @@ export function CommercialConfig() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [tipoCargaVisual, setTipoCargaVisual] = useState<ImagenCatalogo["tipo"]>("catalogo");
   const [status, setStatus] = useState<string | null>(null);
 
   const accionesActivas = useMemo(() => acciones.filter((a) => a.activa).length, [acciones]);
@@ -381,7 +382,7 @@ export function CommercialConfig() {
 
         const body = new FormData();
         body.append("file", fileComprimido, file.name);
-        body.append("tipo", "catalogo");
+        body.append("tipo", tipoCargaVisual);
         body.append("prioridadEnvio", String(esPrioritaria));
 
         const res = await fetch("/api/configuracion-comercial/imagenes", { method: "POST", body });
@@ -390,7 +391,7 @@ export function CommercialConfig() {
       }
 
       setImagenes((prev) => [...nuevas, ...prev.map((img) => nuevas.some((n) => n.prioridadEnvio) ? { ...img, prioridadEnvio: false } : img)]);
-      setStatus(nuevas.length > 0 ? "Imagenes subidas y guardadas" : "No se pudo subir ninguna imagen");
+      setStatus(nuevas.length > 0 ? "Imagenes subidas y guardadas. Recuerda guardar configuracion si cambias prioridades o tipos." : "No se pudo subir ninguna imagen");
     } finally {
       setUploading(false);
     }
@@ -516,20 +517,33 @@ export function CommercialConfig() {
           <div className="commercial-block-head">
             <div>
               <span>Catalogo visual</span>
-              <h3>Imagenes para enviar primero</h3>
+              <h3>Archivos que el agente envia por WhatsApp</h3>
+              <p>Clasifica cada archivo para que el bot adjunte lo correcto cuando pidan carta, promociones, rolls, hand rolls, pokes o gohan.</p>
             </div>
-            <label className="upload-button">
-              <Camera size={14} />
-              {uploading ? "Subiendo..." : "Subir imagenes"}
-              <input accept="image/*,application/pdf,.pdf" multiple onChange={cargarImagenes} type="file" />
-            </label>
+            <div className="visual-upload-controls">
+              <select
+                aria-label="Tipo de archivos a subir"
+                value={tipoCargaVisual}
+                onChange={(e) => setTipoCargaVisual(e.target.value as ImagenCatalogo["tipo"])}
+              >
+                <option value="catalogo">Carta completa</option>
+                <option value="promocion">Promociones</option>
+                <option value="menu_dia">Pokes / gohan</option>
+                <option value="roll_dia">Rolls / destacados</option>
+              </select>
+              <label className="upload-button">
+                <Camera size={14} />
+                {uploading ? "Subiendo..." : "Subir archivos"}
+                <input accept="image/*,application/pdf,.pdf" multiple onChange={cargarImagenes} type="file" />
+              </label>
+            </div>
           </div>
 
           {imagenes.length === 0 ? (
             <div className="visual-empty">
               <ImagePlus size={26} />
               <strong>Aun no hay catalogo visual cargado</strong>
-              <p>Sube imagenes o PDF del menu, promociones, roll del dia o catalogo completo. La marcada como prioritaria sera la primera sugerencia del agente.</p>
+              <p>Sube PDF o imagenes para carta completa, promociones, rolls y pokes/gohan. El agente elegira el archivo por la intención del cliente.</p>
               <label className="visual-upload-cta">
                 <Camera size={15} />
                 {uploading ? "Subiendo imagenes..." : "Subir catalogo visual"}
@@ -555,10 +569,10 @@ export function CommercialConfig() {
                       value={img.tipo}
                       onChange={(e) => setImagenes((prev) => prev.map((item) => item.id === img.id ? { ...item, tipo: e.target.value as ImagenCatalogo["tipo"] } : item))}
                     >
-                      <option value="catalogo">Catalogo completo</option>
-                      <option value="promocion">Promocion</option>
-                      <option value="roll_dia">Roll del dia</option>
-                      <option value="menu_dia">Menu del dia</option>
+                      <option value="catalogo">Carta completa</option>
+                      <option value="promocion">Promociones</option>
+                      <option value="roll_dia">Rolls / destacados</option>
+                      <option value="menu_dia">Pokes / gohan</option>
                     </select>
                     <div className="visual-actions">
                       <button onClick={() => marcarPrioritaria(img.id)} type="button">Enviar primero</button>

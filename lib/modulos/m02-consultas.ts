@@ -8,6 +8,7 @@ import { PROMPT_CONSULTAS } from './prompts/m02';
 import { consultarEstadoOrden } from '@/lib/supabase-pedidos';
 import { obtenerContextoNegocio, serializarContextoNegocio } from '@/lib/catalogo';
 import { prisma } from '@/lib/prisma';
+import { cargarMediaCatalogoVisual, detectarIntencionVisual } from '@/lib/catalogo-visual';
 
 const FALLBACK: RespuestaModulo = {
   respuesta: 'Perdona, tuve un problema técnico. ¿Puedes repetir lo que necesitas?',
@@ -45,62 +46,6 @@ function normalizarTexto(t: string) {
 function esSolicitudProductos(texto: string): boolean {
   const n = normalizarTexto(texto);
   return /\b(precio|vale|cuesta|cuanto|opciones|tiene|hay|recomien|recomienda|roll|poke|sushi|burger|aperitivo|promo|promocion|combo|hand roll|piezas)\b/.test(n);
-}
-
-function esSolicitudCatalogoVisual(texto: string): 'menu' | 'promos' | null {
-  const n = normalizarTexto(texto);
-
-  // Detecta promos: con verbo de acción O solo la palabra promociones/promos
-  const esPromos =
-    /\b(promo|promos|promocion|promociones)\b/.test(n) &&
-    (
-      /\b(que|cuales|ver|manda|envia|tienen|hay|muestrame|mostrar|quiero|necesito|todas?|dime|enviame)\b/.test(n) ||
-      // "las promociones", "las promos", "las promociones" solos — mensaje corto sin verbo explícito
-      /^(las?\s+)?(promos?|promociones?)[\s?!.]*$/.test(n.trim())
-    );
-
-  const esMenu =
-    /\b(menu|carta|catalogo)\b/.test(n) ||
-    /\b(enviar?|manda|enviame|muestrame|necesito|quiero ver|ver)\b.*\b(menu|carta|catalogo)\b/.test(n) ||
-    n.includes('que tienen') || n.includes('que venden') || n.includes('ver el menu') ||
-    // "me puedes enviar el menú" / "necesito el menú"
-    /\b(necesito|enviame|manda|puedes enviar|puedes mandar)\b.*\b(menu|carta)\b/.test(n);
-
-  if (esPromos) return 'promos';
-  if (esMenu) return 'menu';
-  return null;
-}
-
-function resolverUrlPublica(url: string): string {
-  if (url.startsWith('http')) return url;
-  const base = (process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? 'https://goupsoluciones.cl').replace(/\/$/, '');
-  return `${base}${url.startsWith('/') ? '' : '/'}${url}`;
-}
-
-async function cargarImagenesCatalogo(filtro: 'menu' | 'promos'): Promise<MediaAEnviar[]> {
-  try {
-    const imagenes = await prisma.catalogoVisualAgente.findMany({
-      where: { activo: true },
-      orderBy: { creadoEn: 'asc' },
-    });
-
-    // Preferir URLs de Supabase Storage (públicas), descartar locales duplicadas
-    const supabaseImagenes = imagenes.filter(i => i.url.startsWith('http'));
-    const fuente = supabaseImagenes.length > 0 ? supabaseImagenes : imagenes;
-
-    const seleccionadas =
-      filtro === 'promos'
-        ? fuente.filter(i => normalizarTexto(i.nombre).includes('promo'))
-        : fuente;
-
-    return seleccionadas.map(img => ({
-      tipo: 'imagen' as const,
-      url: resolverUrlPublica(img.url),
-      caption: img.nombre.replace(/\.(png|jpg|jpeg|webp)$/i, '').replace(/_/g, ' '),
-    }));
-  } catch {
-    return [];
-  }
 }
 
 const ESTADOS_ORDEN: Record<string, string> = {
@@ -183,8 +128,8 @@ export async function ejecutar(
     : '';
 
   // Detectar si el cliente pide el catálogo visual y cargar imágenes
-  const solicitudVisual = esSolicitudCatalogoVisual(msg.texto);
-  const mediaAEnviar = solicitudVisual ? await cargarImagenesCatalogo(solicitudVisual) : [];
+  const solicitudVisual = detectarIntencionVisual(msg.texto);
+  const mediaAEnviar: MediaAEnviar[] = solicitudVisual ? await cargarMediaCatalogoVisual(solicitudVisual).catch(() => []) : [];
 
   // Cargar catálogo de productos si la consulta lo requiere (precio, producto, promo, recomendación)
   let catalogoTexto = '';

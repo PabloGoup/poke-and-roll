@@ -11,62 +11,15 @@ import {
 import { prisma } from "@/lib/prisma";
 import { evaluarGuards, MENSAJES_CANCELACION } from "@/lib/modulos/guards";
 import { despacharModulo } from "@/lib/modulos/dispatcher";
+import { cargarMediaCatalogoVisual, detectarIntencionVisual } from "@/lib/catalogo-visual";
+import { clasificarTipoReclamo, pareceReclamo } from "@/lib/modulos/flujo-utils";
 import type {
   SesionPedidoCtx,
   ItemCarritoWA,
   DireccionCliente,
   ModuloAgente,
-  MediaAEnviar,
 } from "@/lib/modulos/types";
 import { EstadoConversacion, Prisma } from "@prisma/client";
-
-// Detecta si el mensaje pide el catálogo visual o las promociones
-function detectarSolicitudCatalogo(texto: string): "menu" | "promos" | null {
-  const n = texto.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-  const esPromos =
-    /\b(promo|promos|promocion|promociones)\b/.test(n) &&
-    (
-      /\b(que|cuales|ver|manda|envia|tienen|hay|muestrame|mostrar|quiero|necesito|todas?|dime|enviame)\b/.test(n) ||
-      /^(las?\s+)?(promos?|promociones?)[\s?!.]*$/.test(n.trim())
-    );
-  const esMenu =
-    /\b(menu|carta|catalogo)\b/.test(n) ||
-    /\b(necesito|enviame|manda|puedes enviar|puedes mandar)\b.*\b(menu|carta)\b/.test(n);
-  if (esPromos) return "promos";
-  if (esMenu) return "menu";
-  return null;
-}
-
-async function cargarImagenesParaEnviar(filtro: "menu" | "promos"): Promise<MediaAEnviar[]> {
-  const appUrl = (process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://goupsoluciones.cl").replace(/\/$/, "");
-
-  if (filtro === "menu") {
-    // Carta completa → enviar el PDF
-    return [{
-      tipo: "documento",
-      url: `${appUrl}/api/catalogo/pdf`,
-      nombre: "Carta Poke & Roll.pdf",
-      caption: "Aquí tienes nuestra carta completa.",
-    }];
-  }
-
-  // Promos → imágenes de promos + premium
-  try {
-    const imagenes = await prisma.catalogoVisualAgente.findMany({ where: { activo: true }, orderBy: { creadoEn: "asc" } });
-    const fuente = imagenes.filter(i => i.url.startsWith("http"));
-    const promos = fuente.filter(i => {
-      const n = i.nombre.toLowerCase();
-      return n.includes("promo") || n.includes("premium");
-    });
-    return promos.map(img => ({
-      tipo: "imagen" as const,
-      url: img.url,
-      caption: undefined,
-    }));
-  } catch {
-    return [];
-  }
-}
 
 type WhatsAppWebhookPayload = {
   entry?: {
@@ -77,6 +30,7 @@ type WhatsAppWebhookPayload = {
         };
         messages?: {
           id?: string;
+          type?: string;
           from?: string;
           text?: {
             body?: string;
@@ -95,6 +49,36 @@ type WhatsAppWebhookPayload = {
 type SesionPedidoDb = Prisma.SesionPedidoGetPayload<{
   include: { logs: true };
 }>;
+
+type MediaWebhook = { tipo: "imagen" | "documento"; url: string; caption?: string; nombre?: string };
+
+function construirFallbackMedia(mediaItems: MediaWebhook[]) {
+  if (mediaItems.length === 0) return "";
+  const links = mediaItems
+    .map((media, index) => {
+      const nombre = media.nombre || media.caption || (media.tipo === "documento" ? "documento" : "imagen");
+      return `${index + 1}. ${nombre}: ${media.url}`;
+    })
+    .join("\n");
+
+  return `\n\nSi el archivo no se abre en WhatsApp, puedes verlo aquí:\n${links}`;
+}
+
+function textoParaMensajeNoTextual(tipo?: string) {
+  if (tipo === "audio") {
+    return "Recibí tu audio. Para evitar errores con el pedido, ¿me puedes escribirlo en texto? Si es un reclamo o algo urgente, te derivo con el equipo.";
+  }
+  if (tipo === "image") {
+    return "Recibí tu imagen. Si es comprobante de pago o un problema con el pedido, te derivo con el equipo para revisarlo. Si quieres pedir, escríbeme el detalle en texto.";
+  }
+  if (tipo === "location") {
+    return "Recibí tu ubicación. Para calcular bien el despacho, envíame también calle, número y comuna en texto.";
+  }
+  if (tipo === "document") {
+    return "Recibí tu documento. Para avanzar sin errores, dime en texto qué necesitas revisar o confirmar.";
+  }
+  return "Recibí tu mensaje, pero necesito que me escribas el detalle en texto para poder ayudarte bien.";
+}
 
 // ─── Mapeador sesión DB → SesionPedidoCtx ─────────────────────────────────
 
@@ -160,7 +144,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, ignored: true });
   }
 
-  const texto = message.text?.body ?? "";
+  const texto = message.text?.body?.trim() || textoParaMensajeNoTextual(message.type);
   const telefono = message.from ?? "";
   const nombreCliente = contact?.profile?.name ?? telefono;
   const local = phoneNumberId
@@ -193,6 +177,33 @@ export async function POST(request: Request) {
     payloadMeta: message,
   });
 
+  if (!message.text?.body?.trim()) {
+    const requiereHumanoNoTextual = message.type === "image" || message.type === "audio" || message.type === "document";
+    await prisma.conversacion.update({
+      where: { id: conversacion.id },
+      data: {
+        requiereHumano: requiereHumanoNoTextual,
+        estado: requiereHumanoNoTextual ? EstadoConversacion.esperando_humano : EstadoConversacion.activa,
+      },
+    });
+
+    await enviarWhatsAppTexto({
+      telefono,
+      texto,
+      waToken: local?.waToken ?? undefined,
+      waPhoneId: local?.waPhoneId ?? undefined,
+    });
+
+    await guardarMensaje({
+      conversacionId: conversacion.id,
+      canal: "whatsapp",
+      direccion: "saliente",
+      texto,
+    });
+
+    return NextResponse.json({ ok: true, canal: "whatsapp", nonText: true });
+  }
+
   // ── Pipeline modular ───────────────────────────────────────────────────
 
   // Cargar sesión activa — ignorar sesiones completadas/canceladas
@@ -207,7 +218,7 @@ export async function POST(request: Request) {
 
   let respuestaFinal: string;
   let requiereHumano = false;
-  let mediaAEnviar: { tipo: "imagen" | "documento"; url: string; caption?: string; nombre?: string }[] = [];
+  let mediaAEnviar: MediaWebhook[] = [];
 
   if (guardResult.accion === "cancelar") {
     if (sesionDb) await cerrarSesionPedido(conversacion.id, "cancelada");
@@ -247,10 +258,8 @@ export async function POST(request: Request) {
     if (resultado.mediaAEnviar && resultado.mediaAEnviar.length > 0) {
       mediaAEnviar = resultado.mediaAEnviar;
     } else {
-      // Si el módulo no cargó imágenes (ej. M01 enrutando al primer mensaje),
-      // detectar aquí y cargarlas directamente en el webhook
-      const solicitud = detectarSolicitudCatalogo(texto);
-      if (solicitud) mediaAEnviar = await cargarImagenesParaEnviar(solicitud);
+      const intencionVisual = detectarIntencionVisual(texto);
+      if (intencionVisual) mediaAEnviar = await cargarMediaCatalogoVisual(intencionVisual).catch(() => []);
     }
 
     // Aplicar actualizaciones de sesión
@@ -281,11 +290,24 @@ export async function POST(request: Request) {
     },
   });
 
+  if (requiereHumano || pareceReclamo(texto)) {
+    await prisma.reclamo.create({
+      data: {
+        clienteId: cliente.id,
+        conversacionId: conversacion.id,
+        tipo: clasificarTipoReclamo(texto),
+        descripcion: texto,
+        prioridad: pareceReclamo(texto) ? "alta" : "media",
+      },
+    }).catch(() => null);
+  }
+
   const mediaItems = mediaAEnviar;
+  const mediaFallida: MediaWebhook[] = [];
 
   if (Array.isArray(mediaItems) && mediaItems.length > 0) {
-    for (const media of mediaItems as { tipo: "imagen" | "documento"; url: string; caption?: string; nombre?: string }[]) {
-      await enviarWhatsAppMedia({
+    for (const media of mediaItems) {
+      const envioMedia = await enviarWhatsAppMedia({
         telefono,
         tipo: media.tipo,
         url: media.url,
@@ -293,8 +315,29 @@ export async function POST(request: Request) {
         nombre: media.nombre,
         waToken: local?.waToken ?? undefined,
         waPhoneId: local?.waPhoneId ?? undefined,
-      }).catch(() => null); // fail silently por imagen individual
+      }).catch((error) => ({
+        ok: false,
+        modo: "error",
+        detalle: error instanceof Error ? error.message : "Error enviando media",
+      }));
+
+      if (!envioMedia?.ok) {
+        console.error("[WhatsApp media] No se pudo enviar archivo", {
+          tipo: media.tipo,
+          url: media.url,
+          status: "status" in envioMedia ? envioMedia.status : undefined,
+          detalle: "detalle" in envioMedia ? envioMedia.detalle : undefined,
+        });
+        mediaFallida.push(media);
+      }
     }
+  }
+
+  if (mediaFallida.length > 0 || (mediaItems.length === 0 && detectarIntencionVisual(texto))) {
+    const mediaFallback = mediaFallida.length > 0
+      ? mediaFallida
+      : await cargarMediaCatalogoVisual(detectarIntencionVisual(texto)!).catch(() => []);
+    respuestaFinal = `${respuestaFinal}${construirFallbackMedia(mediaFallback)}`;
   }
 
   // Enviar texto de respuesta

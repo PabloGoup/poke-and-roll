@@ -37,11 +37,14 @@ function getModel(): string {
 
 export async function ejecutar(
   msg: MensajeDespacho,
-  _sesion: SesionPedidoCtx | null
+  sesion: SesionPedidoCtx | null
 ): Promise<RespuestaModulo> {
   const openai = getOpenAI();
 
-  const contexto = `Mensaje del cliente: "${msg.texto}"`;
+  const resumenPedido = sesion?.items?.length
+    ? `Pedido actual:\n${sesion.items.map((item) => `- ${item.quantity}x ${item.productName}${item.notes ? ` (${item.notes})` : ''}`).join('\n')}`
+    : 'Pedido actual: sin items registrados.';
+  const contexto = `${resumenPedido}\nMensaje del cliente: "${msg.texto}"`;
 
   if (!openai) {
     const textoLower = msg.texto.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');

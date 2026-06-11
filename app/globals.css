@@ -3936,6 +3936,26 @@ select {
 .upload-button:hover { background: var(--surface-2); border-color: var(--line-hover); }
 .upload-button input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 
+.visual-upload-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.visual-upload-controls select {
+  height: 34px;
+  min-width: 154px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-2);
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
 .visual-empty {
   min-height: 212px;
   display: grid;

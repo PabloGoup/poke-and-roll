@@ -5,6 +5,12 @@
 import OpenAI from 'openai';
 import type { MensajeDespacho, RespuestaModulo, SesionPedidoCtx } from './types';
 import { PROMPT_CONFIRMACION } from './prompts/m07';
+import {
+  construirResumenPedido,
+  esConfirmacionExplicita,
+  esNegacionOCancelacion,
+  esCierreDePedido,
+} from './flujo-utils';
 
 const FALLBACK: RespuestaModulo = {
   respuesta: 'Perdona, tuve un problema técnico. ¿Puedes confirmar si deseas continuar con tu pedido?',
@@ -35,31 +41,6 @@ function getModel(): string {
   return 'gpt-4o-mini';
 }
 
-function calcularTotal(sesion: SesionPedidoCtx): number {
-  const subtotal = sesion.items.reduce((acc, item) => {
-    const modTotal = item.modifiers.reduce((m, mod) => m + mod.priceDelta, 0);
-    return acc + (item.unitPrice + modTotal) * item.quantity;
-  }, 0);
-  return subtotal + (sesion.costoDespacho ?? 0);
-}
-
-function construirResumenPedido(sesion: SesionPedidoCtx): string {
-  const lineas = sesion.items.map((item) => {
-    const mods = item.modifiers.length > 0
-      ? ` (${item.modifiers.map((m) => m.name).join(', ')})`
-      : '';
-    const precio = (item.unitPrice + item.modifiers.reduce((s, m) => s + m.priceDelta, 0)) * item.quantity;
-    return `• ${item.quantity}x ${item.productName}${mods} — $${precio.toLocaleString('es-CL')}`;
-  });
-
-  const total = calcularTotal(sesion);
-  const despachoLinea = sesion.costoDespacho
-    ? `\n• Despacho: $${sesion.costoDespacho.toLocaleString('es-CL')}`
-    : '';
-
-  return `${lineas.join('\n')}${despachoLinea}\n\nTotal: $${total.toLocaleString('es-CL')}`;
-}
-
 export async function ejecutar(
   msg: MensajeDespacho,
   sesion: SesionPedidoCtx | null
@@ -74,6 +55,28 @@ export async function ejecutar(
   const openai = getOpenAI();
   const resumen = construirResumenPedido(sesion);
 
+  if (esConfirmacionExplicita(msg.texto)) {
+    return {
+      respuesta: 'Perfecto, pedido confirmado. ¿Lo prefieres para retiro en local o delivery?',
+      moduloSiguiente: 'TIPO_ENTREGA',
+      actualizarSesion: { intentosConfirmacion: 0 },
+    };
+  }
+
+  if (esNegacionOCancelacion(msg.texto)) {
+    return {
+      respuesta: 'Entendido, cancelamos este pedido.',
+      moduloSiguiente: 'ORDEN_CANCELACION',
+    };
+  }
+
+  if (esCierreDePedido(msg.texto)) {
+    return {
+      respuesta: `Tengo esto anotado:\n${resumen}\n\nPara avanzar necesito que me confirmes con "sí" si el pedido está correcto.`,
+      actualizarSesion: { intentosConfirmacion: sesion.intentosConfirmacion + 1 },
+    };
+  }
+
   const contexto = [
     `Resumen del pedido:\n${resumen}`,
     `Intentos de confirmación: ${sesion.intentosConfirmacion}`,
@@ -81,26 +84,6 @@ export async function ejecutar(
   ].join('\n');
 
   if (!openai) {
-    // Fallback: asumir que el cliente confirma si el mensaje tiene señales positivas
-    const textoLower = msg.texto.toLowerCase();
-    const confirma = ['sí', 'si', 'confirmo', 'dale', 'ok', 'bueno', 'listo', 'sip'].some((p) =>
-      textoLower.includes(p)
-    );
-    const cancela = ['no', 'cancelar', 'cancela'].some((p) => textoLower.includes(p));
-
-    if (confirma) {
-      return {
-        respuesta: 'Perfecto, pedido confirmado. ¿Lo necesitas para delivery o retiro en local?',
-        moduloSiguiente: 'TIPO_ENTREGA',
-        actualizarSesion: { intentosConfirmacion: 0 },
-      };
-    }
-    if (cancela) {
-      return {
-        respuesta: 'Entendido, cancelamos el pedido.',
-        moduloSiguiente: 'ORDEN_CANCELACION',
-      };
-    }
     return {
       respuesta: `Aquí está tu resumen:\n${resumen}\n\n¿Confirmas el pedido?`,
       actualizarSesion: { intentosConfirmacion: sesion.intentosConfirmacion + 1 },

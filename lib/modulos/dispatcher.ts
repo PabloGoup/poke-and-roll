@@ -10,6 +10,7 @@ import {
   type SesionPedidoCtx,
   TRANSICIONES_VALIDAS,
 } from './types';
+import { pareceReclamo } from './flujo-utils';
 
 // --------------- Tipo de handler ----------------------------
 
@@ -54,6 +55,86 @@ function respuestaEscalada(motivo: string): RespuestaModulo {
   };
 }
 
+function normalizar(texto: string) {
+  return texto.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function esPedidoDirecto(texto: string) {
+  const n = normalizar(texto);
+  return /\b(dame|quiero|agrega|agregame|anota|anotame|pideme|pídeme|necesito|llevo|dejame)\b/.test(n)
+    && /\b(poke|pokes|gohan|roll|rolls|hand\s?roll|handroll|promo|piezas|sushi|burger)\b/.test(n);
+}
+
+function esModalidadEntrega(texto: string) {
+  const n = normalizar(texto);
+  return /\b(retiro|retirar|paso a buscar|buscar al local|en local|delivery|despacho|envio|envío|domicilio)\b/.test(n);
+}
+
+function clienteDiceQueYaPidio(texto: string) {
+  const n = normalizar(texto);
+  return n.includes('ya te hice el pedido')
+    || n.includes('ya hice el pedido')
+    || n.includes('ya te lo pedi')
+    || n.includes('ya lo pedi')
+    || n.includes('ya esta mi pedido');
+}
+
+function resumenCarrito(sesion: SesionPedidoCtx) {
+  const items = sesion.items
+    .map((item) => `- ${item.quantity}x ${item.productName}${item.notes ? ` (${item.notes})` : ''}`)
+    .join('\n');
+  const subtotal = sesion.items.reduce((total, item) => total + item.unitPrice * item.quantity, 0);
+  return `${items}\nSubtotal: $${subtotal.toLocaleString('es-CL')}`;
+}
+
+function respuestaPedidoYaRegistrado(sesion: SesionPedidoCtx): RespuestaModulo {
+  const faltaEntrega = !sesion.modalidad;
+  const faltaPago = !sesion.metodoPago;
+
+  if (faltaEntrega) {
+    return {
+      respuesta: `Sí, lo tengo anotado:\n${resumenCarrito(sesion)}\n¿Lo prefieres para retiro en local o delivery?`,
+      moduloSiguiente: 'TIPO_ENTREGA',
+    };
+  }
+
+  if (faltaPago || !sesion.nombreCliente) {
+    return {
+      respuesta: `Sí, lo tengo anotado:\n${resumenCarrito(sesion)}\nLo dejamos para ${sesion.modalidad === 'retiro_local' ? 'retiro en local' : 'delivery'}. ¿A nombre de quién queda y cómo deseas pagar?`,
+      moduloSiguiente: 'FORMAS_PAGO',
+    };
+  }
+
+  return {
+    respuesta: `Sí, lo tengo anotado:\n${resumenCarrito(sesion)}\n¿Confirmas que lo ingrese así?`,
+    moduloSiguiente: 'CONFIRMACION',
+  };
+}
+
+function resolverModuloDeterministico(
+  msg: MensajeDespacho,
+  sesion: SesionPedidoCtx | null,
+  moduloActual: ModuloAgente
+): { modulo?: ModuloAgente; respuesta?: RespuestaModulo } {
+  if (pareceReclamo(msg.texto)) {
+    return { modulo: 'ATENCION' };
+  }
+
+  if (sesion?.items?.length && clienteDiceQueYaPidio(msg.texto)) {
+    return { respuesta: respuestaPedidoYaRegistrado(sesion) };
+  }
+
+  if (sesion?.items?.length && esModalidadEntrega(msg.texto)) {
+    return { modulo: 'TIPO_ENTREGA' };
+  }
+
+  if ((moduloActual === 'BIENVENIDA' || moduloActual === 'CONSULTAS') && esPedidoDirecto(msg.texto)) {
+    return { modulo: 'PEDIDOS' };
+  }
+
+  return {};
+}
+
 // --------------- Función principal de despacho --------------
 
 export async function despacharModulo(
@@ -65,20 +146,25 @@ export async function despacharModulo(
   const moduloActual: ModuloAgente =
     moduloObjetivo ?? sesion?.moduloActual ?? 'BIENVENIDA';
 
+  const deterministico = resolverModuloDeterministico(msg, sesion, moduloActual);
+  if (deterministico.respuesta) {
+    return deterministico.respuesta;
+  }
+  const moduloEjecucion = deterministico.modulo ?? moduloActual;
+
   // Validar transición si hay sesión activa con módulo distinto
   if (
     sesion &&
-    moduloObjetivo &&
-    moduloObjetivo !== sesion.moduloActual
+    moduloEjecucion !== sesion.moduloActual
   ) {
     const transicionesPermitidas = TRANSICIONES_VALIDAS[sesion.moduloActual];
-    if (!transicionesPermitidas.includes(moduloObjetivo)) {
-      const motivo = `Transición inválida: ${sesion.moduloActual} → ${moduloObjetivo}`;
+    if (!transicionesPermitidas.includes(moduloEjecucion)) {
+      const motivo = `Transición inválida: ${sesion.moduloActual} → ${moduloEjecucion}`;
       console.warn(`[dispatcher] ${motivo}`);
 
       await guardarLogModulo({
         sesionPedidoId: sesion?.id,
-        modulo: moduloObjetivo,
+        modulo: moduloEjecucion,
         mensajeEntrada: msg.texto,
         respuestaSalida: '',
         transicionHacia: 'ATENCION',
@@ -97,9 +183,9 @@ export async function despacharModulo(
   let errorDetalle: string | undefined;
 
   try {
-    const loaderFn = HANDLERS[moduloActual];
+    const loaderFn = HANDLERS[moduloEjecucion];
     if (!loaderFn) {
-      throw new Error(`No existe handler para módulo: ${moduloActual}`);
+      throw new Error(`No existe handler para módulo: ${moduloEjecucion}`);
     }
 
     const handler = await loaderFn();
@@ -107,10 +193,10 @@ export async function despacharModulo(
 
     // Validar transición propuesta por el módulo
     if (respuesta.moduloSiguiente) {
-      const permitidas = TRANSICIONES_VALIDAS[moduloActual];
+      const permitidas = TRANSICIONES_VALIDAS[moduloEjecucion];
       if (!permitidas.includes(respuesta.moduloSiguiente)) {
         console.warn(
-          `[dispatcher] Módulo ${moduloActual} propuso transición inválida → ${respuesta.moduloSiguiente}. Ignorando.`
+          `[dispatcher] Módulo ${moduloEjecucion} propuso transición inválida → ${respuesta.moduloSiguiente}. Ignorando.`
         );
         respuesta = { ...respuesta, moduloSiguiente: undefined };
       }
@@ -120,7 +206,7 @@ export async function despacharModulo(
   } catch (err) {
     errorDetalle =
       err instanceof Error ? err.message : 'Error desconocido en handler';
-    console.error(`[dispatcher] Error en módulo ${moduloActual}:`, errorDetalle);
+    console.error(`[dispatcher] Error en módulo ${moduloEjecucion}:`, errorDetalle);
     respuesta = respuestaEscalada(errorDetalle);
   }
 
@@ -129,7 +215,7 @@ export async function despacharModulo(
   // Guardar log siempre (éxito o fallo)
   await guardarLogModulo({
     sesionPedidoId: sesion?.id,
-    modulo: moduloActual,
+    modulo: moduloEjecucion,
     mensajeEntrada: msg.texto,
     respuestaSalida: respuesta.respuesta,
     transicionHacia: respuesta.moduloSiguiente ?? null,
