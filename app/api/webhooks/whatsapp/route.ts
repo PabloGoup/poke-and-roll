@@ -16,8 +16,43 @@ import type {
   ItemCarritoWA,
   DireccionCliente,
   ModuloAgente,
+  MediaAEnviar,
 } from "@/lib/modulos/types";
 import { EstadoConversacion, Prisma } from "@prisma/client";
+
+// Detecta si el mensaje pide el catálogo visual o las promociones
+function detectarSolicitudCatalogo(texto: string): "menu" | "promos" | null {
+  const n = texto.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const esPromos =
+    /\b(promo|promos|promocion|promociones)\b/.test(n) &&
+    (
+      /\b(que|cuales|ver|manda|envia|tienen|hay|muestrame|mostrar|quiero|necesito|todas?|dime|enviame)\b/.test(n) ||
+      /^(las?\s+)?(promos?|promociones?)[\s?!.]*$/.test(n.trim())
+    );
+  const esMenu =
+    /\b(menu|carta|catalogo)\b/.test(n) ||
+    /\b(necesito|enviame|manda|puedes enviar|puedes mandar)\b.*\b(menu|carta)\b/.test(n);
+  if (esPromos) return "promos";
+  if (esMenu) return "menu";
+  return null;
+}
+
+async function cargarImagenesParaEnviar(filtro: "menu" | "promos"): Promise<MediaAEnviar[]> {
+  try {
+    const imagenes = await prisma.catalogoVisualAgente.findMany({ where: { activo: true }, orderBy: { creadoEn: "asc" } });
+    const fuente = imagenes.filter(i => i.url.startsWith("http"));
+    const seleccionadas = filtro === "promos"
+      ? fuente.filter(i => i.nombre.toLowerCase().includes("promo"))
+      : fuente;
+    return seleccionadas.map(img => ({
+      tipo: "imagen" as const,
+      url: img.url,
+      caption: img.nombre.replace(/\.(png|jpg|jpeg|webp)$/i, "").replace(/_/g, " "),
+    }));
+  } catch {
+    return [];
+  }
+}
 
 type WhatsAppWebhookPayload = {
   entry?: {
@@ -195,7 +230,14 @@ export async function POST(request: Request) {
     const resultado = await despacharModulo(mensajeDespacho, sesionCtx);
     respuestaFinal = resultado.respuesta;
     requiereHumano = resultado.requiereHumano ?? false;
-    if (resultado.mediaAEnviar) mediaAEnviar = resultado.mediaAEnviar;
+    if (resultado.mediaAEnviar && resultado.mediaAEnviar.length > 0) {
+      mediaAEnviar = resultado.mediaAEnviar;
+    } else {
+      // Si el módulo no cargó imágenes (ej. M01 enrutando al primer mensaje),
+      // detectar aquí y cargarlas directamente en el webhook
+      const solicitud = detectarSolicitudCatalogo(texto);
+      if (solicitud) mediaAEnviar = await cargarImagenesParaEnviar(solicitud);
+    }
 
     // Aplicar actualizaciones de sesión
     const updates: Record<string, unknown> = {};
