@@ -387,11 +387,17 @@ export function CommercialConfig() {
 
         const res = await fetch("/api/configuracion-comercial/imagenes", { method: "POST", body });
         const data = await res.json();
-        if (data.ok) nuevas.push(data.imagen);
+        if (data.ok) {
+          nuevas.push(data.imagen);
+        } else {
+          throw new Error(data.detail || data.error || "No se pudo subir el archivo");
+        }
       }
 
       setImagenes((prev) => [...nuevas, ...prev.map((img) => nuevas.some((n) => n.prioridadEnvio) ? { ...img, prioridadEnvio: false } : img)]);
       setStatus(nuevas.length > 0 ? "Imagenes subidas y guardadas. Recuerda guardar configuracion si cambias prioridades o tipos." : "No se pudo subir ninguna imagen");
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : "Error subiendo archivos");
     } finally {
       setUploading(false);
     }

@@ -11,6 +11,7 @@ import {
   TRANSICIONES_VALIDAS,
 } from './types';
 import { construirResumenPedido, esCierreDePedido, normalizarTexto, pareceReclamo } from './flujo-utils';
+import { detectarIntencionVisual } from '@/lib/catalogo-visual';
 
 // --------------- Tipo de handler ----------------------------
 
@@ -130,6 +131,10 @@ function resolverModuloDeterministico(
 ): { modulo?: ModuloAgente; respuesta?: RespuestaModulo } {
   if (pareceReclamo(msg.texto)) {
     return { modulo: 'ATENCION' };
+  }
+
+  if ((moduloActual === 'BIENVENIDA' || moduloActual === 'CONSULTAS') && detectarIntencionVisual(msg.texto)) {
+    return { modulo: 'CONSULTAS' };
   }
 
   if (sesion?.items?.length && clienteDiceQueYaPidio(msg.texto)) {

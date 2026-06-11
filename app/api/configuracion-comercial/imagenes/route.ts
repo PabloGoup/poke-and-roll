@@ -163,7 +163,17 @@ export async function POST(request: Request) {
     uploaded = await subirSupabase(file, config);
     storageProvider = "supabase";
   } catch (err) {
-    console.error("[Catalogo upload] Fallo Supabase, usando local:", err);
+    if (config) {
+      const detalle = err instanceof Error ? err.message : "Error desconocido subiendo a Supabase Storage";
+      console.error("[Catalogo upload] Fallo Supabase:", detalle);
+      return NextResponse.json({
+        ok: false,
+        error: "No se pudo subir a Supabase Storage",
+        detail: detalle,
+        hint: "Revisa que SUPABASE_VENTAS_URL apunte al proyecto correcto, que SUPABASE_VENTAS_STORAGE_BUCKET exista y que SUPABASE_VENTAS_SERVICE_ROLE_KEY sea service_role, no publishable/anon."
+      }, { status: 502 });
+    }
+    console.error("[Catalogo upload] Supabase no configurado, usando local:", err);
     uploaded = await guardarImagenLocal(file);
   }
 

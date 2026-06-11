@@ -8,7 +8,7 @@ import { PROMPT_CONSULTAS } from './prompts/m02';
 import { consultarEstadoOrden } from '@/lib/supabase-pedidos';
 import { obtenerContextoNegocio, serializarContextoNegocio } from '@/lib/catalogo';
 import { prisma } from '@/lib/prisma';
-import { cargarMediaCatalogoVisual, detectarIntencionVisual } from '@/lib/catalogo-visual';
+import { cargarMediaCatalogoVisual, detectarIntencionVisual, resolverUrlCatalogoPdfFallback } from '@/lib/catalogo-visual';
 
 const FALLBACK: RespuestaModulo = {
   respuesta: 'Perdona, tuve un problema técnico. ¿Puedes repetir lo que necesitas?',
@@ -136,7 +136,7 @@ export async function ejecutar(
       solicitudVisual === 'promocion'
         ? 'Te envío las promociones vigentes. ¿Quieres que te ayude a elegir una?'
         : solicitudVisual === 'catalogo'
-          ? 'Te envío la carta. Si buscas algo específico, puedo ayudarte a elegir.'
+          ? `Te envío la carta. Si no se abre el archivo, también puedes verla aquí: ${mediaAEnviar[0]?.url ?? resolverUrlCatalogoPdfFallback()}`
           : 'Te envío esas opciones. ¿Quieres que te ayude a armar el pedido?';
 
     return { respuesta, mediaAEnviar };

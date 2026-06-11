@@ -13,6 +13,10 @@ function resolverUrlPublica(url: string): string {
   return `${base}${url.startsWith("/") ? "" : "/"}${url}`;
 }
 
+export function resolverUrlCatalogoPdfFallback() {
+  return resolverUrlPublica("/api/catalogo/pdf");
+}
+
 export function detectarIntencionVisual(texto: string): IntencionVisual | null {
   const n = normalizar(texto);
   const solicitaVer =

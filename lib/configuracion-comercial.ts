@@ -139,7 +139,7 @@ export async function obtenerConfiguracionComercial() {
   const [reglas, items, imagenes, tarifas, restaurante] = await Promise.all([
     prisma.reglaComercialAgente.findMany({ orderBy: [{ prioridad: "asc" }, { titulo: "asc" }] }),
     prisma.itemComercialDestacado.findMany({ orderBy: { creadoEn: "desc" } }),
-    prisma.catalogoVisualAgente.findMany({ where: { activo: true, NOT: { storagePath: { startsWith: "local:" } } }, orderBy: [{ prioridadEnvio: "desc" }, { creadoEn: "desc" }] }),
+    prisma.catalogoVisualAgente.findMany({ where: { activo: true }, orderBy: [{ prioridadEnvio: "desc" }, { creadoEn: "desc" }] }),
     prisma.zonaDespacho.findMany({ orderBy: { costo: "asc" } }),
     prisma.configuracionRestaurante.findUnique({ where: { id: "restaurante" } })
   ]);
