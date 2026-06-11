@@ -94,7 +94,7 @@ export interface MediaAEnviar {
   tipo: "imagen" | "documento";
   url: string;
   caption?: string;
-  nombre?: string;
+  nombre?: string;          // filename para documentos PDF
 }
 
 export interface RespuestaModulo {

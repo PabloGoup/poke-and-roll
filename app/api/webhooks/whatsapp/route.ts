@@ -38,16 +38,30 @@ function detectarSolicitudCatalogo(texto: string): "menu" | "promos" | null {
 }
 
 async function cargarImagenesParaEnviar(filtro: "menu" | "promos"): Promise<MediaAEnviar[]> {
+  const appUrl = (process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://goupsoluciones.cl").replace(/\/$/, "");
+
+  if (filtro === "menu") {
+    // Carta completa → enviar el PDF
+    return [{
+      tipo: "documento",
+      url: `${appUrl}/api/catalogo/pdf`,
+      nombre: "Carta Poke & Roll.pdf",
+      caption: "Aquí tienes nuestra carta completa.",
+    }];
+  }
+
+  // Promos → imágenes de promos + premium
   try {
     const imagenes = await prisma.catalogoVisualAgente.findMany({ where: { activo: true }, orderBy: { creadoEn: "asc" } });
     const fuente = imagenes.filter(i => i.url.startsWith("http"));
-    const seleccionadas = filtro === "promos"
-      ? fuente.filter(i => i.nombre.toLowerCase().includes("promo"))
-      : fuente;
-    return seleccionadas.map(img => ({
+    const promos = fuente.filter(i => {
+      const n = i.nombre.toLowerCase();
+      return n.includes("promo") || n.includes("premium");
+    });
+    return promos.map(img => ({
       tipo: "imagen" as const,
       url: img.url,
-      caption: img.nombre.replace(/\.(png|jpg|jpeg|webp)$/i, "").replace(/_/g, " "),
+      caption: undefined,
     }));
   } catch {
     return [];
