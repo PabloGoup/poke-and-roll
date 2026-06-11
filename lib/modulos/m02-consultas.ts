@@ -49,12 +49,23 @@ function esSolicitudProductos(texto: string): boolean {
 
 function esSolicitudCatalogoVisual(texto: string): 'menu' | 'promos' | null {
   const n = normalizarTexto(texto);
+
+  // Detecta promos: con verbo de acción O solo la palabra promociones/promos
   const esPromos =
     /\b(promo|promos|promocion|promociones)\b/.test(n) &&
-    /\b(que|cuales|ver|manda|envia|tienen|hay|muestrame|mostrar)\b/.test(n);
+    (
+      /\b(que|cuales|ver|manda|envia|tienen|hay|muestrame|mostrar|quiero|necesito|todas?|dime|enviame)\b/.test(n) ||
+      // "las promociones", "las promos", "las promociones" solos — mensaje corto sin verbo explícito
+      /^(las?\s+)?(promos?|promociones?)[\s?!.]*$/.test(n.trim())
+    );
+
   const esMenu =
     /\b(menu|carta|catalogo)\b/.test(n) ||
-    n.includes('que tienen') || n.includes('que venden') || n.includes('ver el menu');
+    /\b(enviar?|manda|enviame|muestrame|necesito|quiero ver|ver)\b.*\b(menu|carta|catalogo)\b/.test(n) ||
+    n.includes('que tienen') || n.includes('que venden') || n.includes('ver el menu') ||
+    // "me puedes enviar el menú" / "necesito el menú"
+    /\b(necesito|enviame|manda|puedes enviar|puedes mandar)\b.*\b(menu|carta)\b/.test(n);
+
   if (esPromos) return 'promos';
   if (esMenu) return 'menu';
   return null;
