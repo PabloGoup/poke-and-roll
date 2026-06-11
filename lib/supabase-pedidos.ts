@@ -34,11 +34,19 @@ function getSupabase(): SupabaseClient {
   if (!url || !key) {
     throw new Error('Faltan SUPABASE_PEDIDOS_URL o SUPABASE_PEDIDOS_ANON_KEY en las variables de entorno.');
   }
-  // Node 20 sin WebSocket nativo: usar el paquete ws como transporte para Realtime.
-  // En server-side Next.js no usamos Realtime, pero supabase-js lo inicializa al crearse.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const wsTransport = require('ws') as typeof WebSocket;
-  _supabase = createClient(url, key, { realtime: { transport: wsTransport } });
+  // Node < 22 no tiene WebSocket nativo en el scope global.
+  // Supabase Realtime lo requiere al inicializarse. Polyfill con el paquete ws.
+  // Se hace en el global (no como transport option) porque algunas versiones de
+  // supabase-js ignoran el transport y leen globalThis.WebSocket directamente.
+  if (typeof globalThis.WebSocket === 'undefined') {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+      (globalThis as Record<string, unknown>).WebSocket = require('ws');
+    } catch {
+      // ws no disponible — las llamadas REST/RPC igual funcionan
+    }
+  }
+  _supabase = createClient(url, key);
   return _supabase;
 }
 
