@@ -158,11 +158,52 @@ model Conversacion {
   reclamos          Reclamo[]
   alertas           Alerta[]
   decisiones        DecisionAgente[]
+  sesionPedido      SesionPedido?
   creadoEn          DateTime           @default(now()) @map("creado_en")
   actualizadoEn     DateTime           @updatedAt @map("actualizado_en")
 
   @@index([localId, canal, estado])
   @@map("conversaciones")
+}
+
+model SesionPedido {
+  id                    String       @id @default(cuid())
+  conversacionId        String       @unique @map("conversacion_id")
+  conversacion          Conversacion @relation(fields: [conversacionId], references: [id])
+  moduloActual          String       @default("BIENVENIDA") @map("modulo_actual")
+  estadoSesion          String       @default("activa") @map("estado_sesion")
+  items                 Json         @default("[]")
+  modalidad             String?
+  nombreCliente         String?      @map("nombre_cliente")
+  telefonoCliente       String?      @map("telefono_cliente")
+  direccion             Json?
+  costoDespacho         Int?         @map("costo_despacho")
+  metodoPago            String?      @map("metodo_pago")
+  externalOrderId       String?      @map("external_order_id")
+  externalOrderNumber   String?      @map("external_order_number")
+  intentosConfirmacion  Int          @default(0) @map("intentos_confirmacion")
+  ultimaActividadEn     DateTime     @default(now()) @map("ultima_actividad_en")
+  creadoEn              DateTime     @default(now()) @map("creado_en")
+  actualizadoEn         DateTime     @updatedAt @map("actualizado_en")
+  logs                  LogModulo[]
+  @@map("sesiones_pedido")
+}
+
+model LogModulo {
+  id              String        @id @default(cuid())
+  sesionPedidoId  String?       @map("sesion_pedido_id")
+  sesionPedido    SesionPedido? @relation(fields: [sesionPedidoId], references: [id])
+  modulo          String
+  mensajeEntrada  String        @map("mensaje_entrada") @db.Text
+  respuestaSalida String        @map("respuesta_salida") @db.Text
+  transicionHacia String?       @map("transicion_hacia")
+  exito           Boolean       @default(true)
+  errorDetalle    String?       @map("error_detalle") @db.Text
+  duracionMs      Int?          @map("duracion_ms")
+  creadoEn        DateTime      @default(now()) @map("creado_en")
+  @@index([sesionPedidoId, modulo])
+  @@index([creadoEn])
+  @@map("logs_modulo")
 }
 
 model Mensaje {

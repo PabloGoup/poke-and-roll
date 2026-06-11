@@ -1,6 +1,6 @@
 # Implementaciones del agente omnicanal
 
-Ultima actualizacion: 2026-06-03
+Ultima actualizacion: 2026-06-10
 
 ## 25. Verificación de empresa Meta aprobada — Goup Soluciones
 
@@ -314,6 +314,45 @@ Cambios realizados:
 Validacion:
 
 - `npm run lint`: OK con 8 warnings preexistentes en componentes no relacionados.
+
+## 27. Rescate de skills e integración WhatsApp → Supabase/POS
+
+Fecha: 2026-06-10
+
+Objetivo:
+
+- Rescatar el trabajo generado en skills sin revertir funcionalidades.
+- Dejar `Poke and roll` en estado compilable.
+- Alinear el flujo WhatsApp → agente modular → Supabase/Pizza_and_roll → POS/cocina → notificación.
+
+Cambios realizados:
+
+- `despacharModulo()` quedó como API pública del dispatcher modular, manteniendo `despachar` como alias compatible.
+- El webhook WhatsApp ahora resuelve el local por `value.metadata.phone_number_id` contra `Local.waPhoneId`.
+- Las respuestas WhatsApp usan `Local.waToken`/`Local.waPhoneId` cuando existen, con fallback global solo para desarrollo.
+- `pedido-listo` ya no informa que un delivery "va en camino" cuando el estado solo cambió a `listo`.
+- `MensajeDespacho` soporta `telefonoCliente` e `idMensajeMeta`.
+- `SesionPedidoCtx.metodoPago` acepta `mixto` si la RPC/enum de Supabase lo soporta.
+- `lib/supabase-pedidos.ts` quedó sin `any` explícitos y envía `source = "whatsapp"` y `cashier_id`.
+- `next.config.ts` fija `outputFileTracingRoot` al proyecto para evitar que Next tome `/Users/ptoledos` como root.
+- En `Pizza_and_roll`, la RPC preparada acepta `cashier_id` desde checkout.
+- `seed-bot-profile.sql` quedó como seed seguro/idempotente, sin sugerir eliminar FK en producción.
+- Skill `director-integracion` normalizado: 25 specs `00-24`, `SKILL.md` corto, referencias coherentes y metadata `agents/openai.yaml`.
+- Se eliminaron claves literales de documentación del skill y se reemplazaron por placeholders.
+
+Validación:
+
+- `npm run build` en `Poke and roll`: OK.
+- `npm run build` en `Pizza_and_roll`: OK.
+
+Pendientes manuales:
+
+- Rotar `SUPABASE_PEDIDOS_WEBHOOK_SECRET`.
+- Actualizar el secret rotado en `.env.local`, Vercel y Supabase Database Webhook.
+- Aplicar/revisar SQL de `Pizza_and_roll` en Supabase producción o staging.
+- Confirmar `WHATSAPP_BOT_CASHIER_ID` con un perfil cajero técnico válido.
+- Completar `Local.waPhoneId` y tokens por local.
+- Probar E2E con webhook WhatsApp, orden visible en POS/cocina y notificación `pedido-listo`.
 
 ## 25. Mejora visual de configuracion comercial
 

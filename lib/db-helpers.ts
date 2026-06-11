@@ -111,3 +111,73 @@ export async function guardarDecision(params: {
     }
   });
 }
+
+// ─── Helpers SesionPedido ──────────────────────────────────────────────────
+
+export async function obtenerSesionPedido(conversacionId: string) {
+  return prisma.sesionPedido.findUnique({
+    where: { conversacionId },
+    include: { logs: { orderBy: { creadoEn: 'asc' }, take: 50 } },
+  });
+}
+
+export async function upsertSesionPedido(
+  conversacionId: string,
+  data: {
+    moduloActual?: string;
+    estadoSesion?: string;
+    items?: object[];
+    modalidad?: string;
+    nombreCliente?: string;
+    telefonoCliente?: string;
+    direccion?: object;
+    costoDespacho?: number;
+    metodoPago?: string;
+    externalOrderId?: string;
+    externalOrderNumber?: string;
+    intentosConfirmacion?: number;
+  }
+) {
+  const ahora = new Date();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = data as any;
+  return prisma.sesionPedido.upsert({
+    where: { conversacionId },
+    update: { ...d, ultimaActividadEn: ahora },
+    create: { conversacionId, ...d, ultimaActividadEn: ahora },
+  });
+}
+
+export async function transicionarModulo(
+  conversacionId: string,
+  moduloSiguiente: string,
+  actualizaciones?: object
+) {
+  return upsertSesionPedido(conversacionId, {
+    moduloActual: moduloSiguiente,
+    ...actualizaciones,
+  });
+}
+
+export async function guardarLogModulo(params: {
+  sesionPedidoId?: string;
+  modulo: string;
+  mensajeEntrada: string;
+  respuestaSalida: string;
+  transicionHacia?: string | null;
+  exito: boolean;
+  errorDetalle?: string;
+  duracionMs?: number;
+}) {
+  return prisma.logModulo.create({ data: params as never });
+}
+
+export async function cerrarSesionPedido(
+  conversacionId: string,
+  estado: 'completada' | 'cancelada'
+) {
+  return prisma.sesionPedido.update({
+    where: { conversacionId },
+    data: { estadoSesion: estado, moduloActual: 'DESPEDIDA' },
+  });
+}

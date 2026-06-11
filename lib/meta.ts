@@ -16,9 +16,11 @@ export function verificarWebhook(searchParams: URLSearchParams) {
 export async function enviarWhatsAppTexto(params: {
   telefono: string;
   texto: string;
+  waToken?: string;
+  waPhoneId?: string;
 }) {
-  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const accessToken = params.waToken ?? process.env.WHATSAPP_ACCESS_TOKEN;
+  const phoneNumberId = params.waPhoneId ?? process.env.WHATSAPP_PHONE_NUMBER_ID;
 
   if (!accessToken || !phoneNumberId) {
     return { ok: false, modo: "simulado", detalle: "Faltan WHATSAPP_ACCESS_TOKEN o WHATSAPP_PHONE_NUMBER_ID" };

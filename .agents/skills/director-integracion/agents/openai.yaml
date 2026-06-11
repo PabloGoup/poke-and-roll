@@ -1,0 +1,4 @@
+interface:
+  display_name: "Director Integración"
+  short_description: "Integra WhatsApp, agente modular, Supabase, POS y cocina"
+  default_prompt: "Actúa como director técnico de la integración entre Poke and roll y Pizza_and_roll."

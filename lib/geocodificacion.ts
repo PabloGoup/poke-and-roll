@@ -107,3 +107,57 @@ export async function calcularCostoDespacho(
   if (!zona) return null;
   return { zona, distanciaKm };
 }
+
+// ── Geocodificación extendida con extracción de comuna ────────────────────────
+
+export interface ResultadoGeocodificacion {
+  lat: number;
+  lng: number;
+  direccionFormateada: string;
+  comuna: string | null;
+  region: string | null;
+}
+
+export async function geocodificarDireccionCompleta(
+  direccion: string,
+  apiKey: string
+): Promise<ResultadoGeocodificacion | null> {
+  try {
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+      direccion + ", Chile"
+    )}&key=${apiKey}&region=cl&language=es`;
+
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) return null;
+    const data = await res.json();
+
+    if (data.status !== "OK" || !data.results?.[0]) return null;
+
+    const result = data.results[0];
+    const { lat, lng } = result.geometry.location;
+    const components = result.address_components as Array<{
+      long_name: string;
+      types: string[];
+    }>;
+
+    // En Chile la comuna aparece como 'locality' o 'sublocality_level_1'
+    const comunaComponent = components.find(
+      (c) =>
+        c.types.includes("locality") ||
+        c.types.includes("sublocality_level_1")
+    );
+
+    return {
+      lat,
+      lng,
+      direccionFormateada: result.formatted_address,
+      comuna: comunaComponent?.long_name ?? null,
+      region:
+        components.find((c) =>
+          c.types.includes("administrative_area_level_1")
+        )?.long_name ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
