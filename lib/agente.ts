@@ -39,7 +39,7 @@ type DecisionAgente = {
 };
 
 const palabrasReclamo = ["atraso", "demora", "malo", "reclamo", "equivocado", "frio", "no llego", "nunca llego", "cancelar", "mala calidad", "nunca llegó"];
-const palabrasVenta = ["quiero", "promo", "combo", "comprar", "pedido", "recomienda", "cuanto", "cuánto", "precio", "vale", "menu", "menú", "carta", "pedir", "opciones", "tienen", "hay algo", "sin palta", "palta", "salmon", "salmón", "cambiar", "cambio", "reemplazar", "que tienen", "que hay"];
+const palabrasVenta = ["quiero", "promo", "combo", "comprar", "pedido", "recomienda", "cuanto", "cuánto", "precio", "vale", "menu", "menú", "carta", "pedir", "opciones", "tienen", "hay algo", "sin palta", "palta", "salmon", "salmón", "cambiar", "cambio", "reemplazar", "que tienen", "que hay", "poke", "gohan", "gohan bowl"];
 const palabrasHorario = ["hora", "horario", "cierran", "abren", "abierto", "cerrado", "cuando abren", "cuando cierran"];
 const palabrasPago = ["pago", "pagar", "transferencia", "tarjeta", "efectivo", "como pago"];
 const palabrasDespacho = ["delivery", "despacho", "envio", "envío", "reparto", "domicilio", "llevan", "mandan"];

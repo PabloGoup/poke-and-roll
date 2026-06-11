@@ -58,6 +58,41 @@ export function invalidarCacheProductos() {
   catalogoCache = null;
 }
 
+// Sinónimos: mapeo de términos alternativos a como aparecen en el catálogo.
+// "gohan" es equivalente a "poke" — misma preparación, distinto nombre coloquial.
+const SINONIMOS: [RegExp, string][] = [
+  [/\bgohanes?\b/gi, 'poke'],      // "gohan" / "gohanes" = poke bowl
+  [/\bpokee?\b/gi, 'poke'],        // "pokee" / typos
+  [/\bbol\b/gi, 'poke'],           // "bol de salmón" → poke de salmón
+];
+
+function aplicarSinonimos(texto: string): string {
+  let resultado = texto;
+  for (const [patron, reemplazo] of SINONIMOS) {
+    resultado = resultado.replace(patron, reemplazo);
+  }
+  return resultado;
+}
+
+function levenshtein(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, (_, i) => [i, ...Array(n).fill(0)]);
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[m][n];
+}
+
+function similitudLevenshtein(a: string, b: string): number {
+  const dist = levenshtein(a, b);
+  return 1 - dist / Math.max(a.length, b.length, 1);
+}
+
 function normalizar(texto: string): string {
   return texto
     .toLowerCase()
@@ -75,7 +110,9 @@ export async function resolverItemsCarrito(
   const noEncontrados: string[] = [];
 
   for (const item of items) {
-    const nombreNorm = normalizar(item.nombre);
+    // Aplicar sinónimos antes de normalizar (gohan → poke, bol → poke, etc.)
+    const nombreConSinonimos = aplicarSinonimos(item.nombre);
+    const nombreNorm = normalizar(nombreConSinonimos);
 
     // Nivel 1: match exacto
     let producto = catalogo.find(p => normalizar(p.productName) === nombreNorm);
@@ -83,7 +120,7 @@ export async function resolverItemsCarrito(
     if (!producto) producto = catalogo.find(p => normalizar(p.productName).includes(nombreNorm));
     // Nivel 3: texto del cliente contiene nombre del catálogo
     if (!producto) producto = catalogo.find(p => nombreNorm.includes(normalizar(p.productName)));
-    // Nivel 4: match por palabras clave (todas presentes)
+    // Nivel 4: match por palabras clave (todas las palabras del cliente presentes en el nombre)
     if (!producto) {
       const palabras = nombreNorm.split(/\s+/).filter(p => p.length > 2);
       if (palabras.length > 0) {
@@ -91,6 +128,59 @@ export async function resolverItemsCarrito(
           const nc = normalizar(p.productName);
           return palabras.every(palabra => nc.includes(palabra));
         });
+      }
+    }
+    // Nivel 5: match difuso — al menos la mitad de palabras coinciden (tolerancia a errores de escritura)
+    if (!producto) {
+      const palabras = nombreNorm.split(/\s+/).filter(p => p.length > 2);
+      if (palabras.length > 0) {
+        producto = catalogo
+          .map(p => {
+            const nc = normalizar(p.productName);
+            const coincidencias = palabras.filter(palabra => nc.includes(palabra)).length;
+            return { producto: p, ratio: coincidencias / palabras.length };
+          })
+          .filter(r => r.ratio >= 0.5)
+          .sort((a, b) => b.ratio - a.ratio)[0]?.producto;
+      }
+    }
+    // Nivel 6: similitud de caracteres por bigramas (captura "acevichao" → "acevichado")
+    if (!producto) {
+      const bigramas = (s: string) => {
+        const set = new Set<string>();
+        for (let i = 0; i < s.length - 1; i++) set.add(s.slice(i, i + 2));
+        return set;
+      };
+      const bg = bigramas(nombreNorm);
+      const mejor = catalogo
+        .map(p => {
+          const bgP = bigramas(normalizar(p.productName));
+          const interseccion = [...bg].filter(b => bgP.has(b)).length;
+          const union = new Set([...bg, ...bgP]).size;
+          return { producto: p, similitud: union > 0 ? interseccion / union : 0 };
+        })
+        .filter(r => r.similitud >= 0.4)
+        .sort((a, b) => b.similitud - a.similitud)[0];
+      if (mejor) producto = mejor.producto;
+    }
+
+    // Nivel 7: Levenshtein por palabras — captura errores en palabras cortas ("pokee", "prmo")
+    if (!producto) {
+      const palabrasCliente = nombreNorm.split(/\s+/).filter(p => p.length >= 3);
+      if (palabrasCliente.length > 0) {
+        producto = catalogo
+          .map(p => {
+            const palabrasProd = normalizar(p.productName).split(/\s+/);
+            let totalSim = 0;
+            let matches = 0;
+            for (const pc of palabrasCliente) {
+              const mejorSim = Math.max(...palabrasProd.map(pp => similitudLevenshtein(pc, pp)));
+              if (mejorSim >= 0.65) { totalSim += mejorSim; matches++; }
+            }
+            return { producto: p, score: matches > 0 ? totalSim / palabrasCliente.length : 0 };
+          })
+          .filter(r => r.score >= 0.5)
+          .sort((a, b) => b.score - a.score)[0]?.producto;
       }
     }
 
