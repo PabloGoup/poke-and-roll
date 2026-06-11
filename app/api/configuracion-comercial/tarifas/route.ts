@@ -69,6 +69,9 @@ export async function PUT(request: Request) {
     return NextResponse.json({ ok: true, restaurante: restauranteConCoords });
   } catch (err) {
     console.error("[tarifas PUT]", err);
-    return NextResponse.json({ ok: false, error: "Error guardando tarifas" }, { status: 500 });
+    return NextResponse.json({
+      ok: false,
+      error: err instanceof Error ? err.message : "Error guardando tarifas"
+    }, { status: 500 });
   }
 }

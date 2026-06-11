@@ -3,6 +3,7 @@
 // ============================================================
 
 import { guardarLogModulo } from '@/lib/db-helpers';
+import { formatearPrecio, obtenerContextoNegocio } from '@/lib/catalogo';
 import {
   type ModuloAgente,
   type MensajeDespacho,
@@ -66,6 +67,21 @@ function esPedidoDirecto(texto: string) {
     && /\b(poke|pokes|gohan|roll|rolls|hand\s?roll|handroll|promo|piezas|sushi|burger)\b/.test(n);
 }
 
+function esPreguntaContenidoProducto(texto: string) {
+  const n = normalizar(texto);
+  return /\b(que trae|qué trae|que contiene|qué contiene|incluye|ingredientes|de que es|de qué es|como viene|cómo viene)\b/.test(n);
+}
+
+function esConsultaEstadoPedido(texto: string) {
+  const n = normalizar(texto);
+  return /\b(como va|cómo va|estado|mi pedido|orden|listo|preparacion|preparación)\b/.test(n);
+}
+
+function quiereCambiarOrdenCreada(texto: string) {
+  const n = normalizar(texto);
+  return /\b(cambiar|agregar|agregame|añadir|anadir|cancelar|cancela|modificar|sacar|quitar)\b/.test(n);
+}
+
 function esModalidadEntrega(texto: string) {
   const n = normalizar(texto);
   return /\b(retiro|retirar|paso a buscar|buscar al local|en local|delivery|despacho|envio|envío|domicilio)\b/.test(n);
@@ -124,13 +140,83 @@ function respuestaCerrarCarrito(sesion: SesionPedidoCtx): RespuestaModulo {
   };
 }
 
-function resolverModuloDeterministico(
+function normalizarComparacion(texto: string) {
+  return normalizar(texto).replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function scoreCoincidencia(base: string, candidato: string) {
+  const b = normalizarComparacion(base);
+  const c = normalizarComparacion(candidato);
+  if (!b || !c) return 0;
+  if (b === c) return 100;
+  if (b.includes(c) || c.includes(b)) return 80;
+  const palabrasBase = b.split(' ').filter((p) => p.length > 2);
+  const palabrasCandidato = c.split(' ').filter((p) => p.length > 2);
+  const coincidencias = palabrasBase.filter((p) => palabrasCandidato.includes(p)).length;
+  return coincidencias / Math.max(palabrasBase.length, 1);
+}
+
+async function respuestaContenidoItemCarrito(sesion: SesionPedidoCtx): Promise<RespuestaModulo | null> {
+  const item = sesion.items[sesion.items.length - 1];
+  if (!item) return null;
+
+  try {
+    const contexto = await obtenerContextoNegocio(item.productName);
+    const promociones = contexto.promociones
+      .map((promo) => ({ promo, score: scoreCoincidencia(item.productName, promo.nombre) }))
+      .filter((entry) => entry.score > 0)
+      .sort((a, b) => b.score - a.score);
+
+    const mejorPromo = promociones[0]?.promo;
+    if (mejorPromo) {
+      return {
+        respuesta: `${mejorPromo.nombre} ${mejorPromo.precio ? `(${formatearPrecio(mejorPromo.precio)})` : ''} trae: ${mejorPromo.descripcion} ¿La dejamos anotada así o quieres cambiarla?`,
+        moduloSiguiente: 'PEDIDOS',
+      };
+    }
+
+    const productos = contexto.productos
+      .map((producto) => ({ producto, score: scoreCoincidencia(item.productName, producto.nombre) }))
+      .filter((entry) => entry.score > 0)
+      .sort((a, b) => b.score - a.score);
+    const mejorProducto = productos[0]?.producto;
+    if (mejorProducto?.descripcion) {
+      return {
+        respuesta: `${mejorProducto.nombre} trae: ${mejorProducto.descripcion} ¿Lo dejamos anotado así o quieres cambiarlo?`,
+        moduloSiguiente: 'PEDIDOS',
+      };
+    }
+  } catch {
+    // Si el catálogo falla, respondemos sin inventar.
+  }
+
+  return {
+    respuesta: `Tengo anotado ${item.quantity}x ${item.productName}. No tengo el detalle de ingredientes confirmado en este momento; si quieres, te derivo con el equipo para confirmarlo antes de cerrar.`,
+    moduloSiguiente: 'PEDIDOS',
+  };
+}
+
+async function resolverModuloDeterministico(
   msg: MensajeDespacho,
   sesion: SesionPedidoCtx | null,
   moduloActual: ModuloAgente
-): { modulo?: ModuloAgente; respuesta?: RespuestaModulo } {
+): Promise<{ modulo?: ModuloAgente; respuesta?: RespuestaModulo }> {
   if (pareceReclamo(msg.texto)) {
     return { modulo: 'ATENCION' };
+  }
+
+  if (sesion?.externalOrderId) {
+    if (esConsultaEstadoPedido(msg.texto)) return { modulo: 'CONSULTAS' };
+    if (quiereCambiarOrdenCreada(msg.texto)) {
+      return {
+        respuesta: {
+          respuesta: `Tu orden ${sesion.externalOrderNumber ? `#${sesion.externalOrderNumber}` : ''} ya fue creada. Para cambios, agregados o cancelaciones te derivo con el equipo para revisar si aún es posible.`,
+          moduloSiguiente: 'ATENCION',
+          requiereHumano: true,
+        },
+      };
+    }
+    return { modulo: 'CONSULTAS' };
   }
 
   if ((moduloActual === 'BIENVENIDA' || moduloActual === 'CONSULTAS') && detectarIntencionVisual(msg.texto)) {
@@ -145,8 +231,28 @@ function resolverModuloDeterministico(
     return { respuesta: respuestaCerrarCarrito(sesion) };
   }
 
+  if (sesion?.items?.length && esPreguntaContenidoProducto(msg.texto)) {
+    return { respuesta: await respuestaContenidoItemCarrito(sesion) ?? undefined };
+  }
+
   if (sesion?.items?.length && esModalidadEntrega(msg.texto)) {
     return { modulo: 'TIPO_ENTREGA' };
+  }
+
+  if (sesion?.items?.length && moduloActual === 'TIPO_ENTREGA' && !sesion.modalidad) {
+    return { modulo: 'TIPO_ENTREGA' };
+  }
+
+  if (sesion?.items?.length && sesion.modalidad === 'despacho' && !sesion.direccion) {
+    return { modulo: 'DIRECCION' };
+  }
+
+  if (
+    sesion?.items?.length &&
+    sesion.modalidad &&
+    (moduloActual === 'FORMAS_PAGO' || (!sesion.metodoPago || !sesion.nombreCliente))
+  ) {
+    return { modulo: 'FORMAS_PAGO' };
   }
 
   if ((moduloActual === 'BIENVENIDA' || moduloActual === 'CONSULTAS') && esPedidoDirecto(msg.texto)) {
@@ -167,7 +273,7 @@ export async function despacharModulo(
   const moduloActual: ModuloAgente =
     moduloObjetivo ?? sesion?.moduloActual ?? 'BIENVENIDA';
 
-  const deterministico = resolverModuloDeterministico(msg, sesion, moduloActual);
+  const deterministico = await resolverModuloDeterministico(msg, sesion, moduloActual);
   if (deterministico.respuesta) {
     return deterministico.respuesta;
   }

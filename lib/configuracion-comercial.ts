@@ -161,26 +161,24 @@ export async function guardarTarifasDespacho(
     distanciaMaxKm: t.distanciaMaxKm
   }));
 
-  await prisma.$transaction(async (tx) => {
-    await tx.configuracionRestaurante.upsert({
-      where: { id: "restaurante" },
-      create: {
-        id: "restaurante",
-        direccion: restaurante.direccion,
-        latitud: restaurante.latitud ?? null,
-        longitud: restaurante.longitud ?? null
-      },
-      update: {
-        direccion: restaurante.direccion,
-        latitud: restaurante.latitud ?? null,
-        longitud: restaurante.longitud ?? null
-      }
-    });
-
-    await tx.zonaDespacho.deleteMany();
-
-    if (zonaData.length > 0) {
-      await tx.zonaDespacho.createMany({ data: zonaData });
+  await prisma.configuracionRestaurante.upsert({
+    where: { id: "restaurante" },
+    create: {
+      id: "restaurante",
+      direccion: restaurante.direccion,
+      latitud: restaurante.latitud ?? null,
+      longitud: restaurante.longitud ?? null
+    },
+    update: {
+      direccion: restaurante.direccion,
+      latitud: restaurante.latitud ?? null,
+      longitud: restaurante.longitud ?? null
     }
   });
+
+  await prisma.zonaDespacho.deleteMany();
+
+  for (const zona of zonaData) {
+    await prisma.zonaDespacho.create({ data: zona });
+  }
 }
