@@ -114,15 +114,44 @@ export function detectarItemPedidoDeterministico(msg: MensajeDespacho): ItemPedi
 
 export function detectarModificacion(texto: string): ModificacionDetectada | null {
   const n = normalizar(texto);
-  const cambio = n.match(/\b(?:cambiar|cambia|cambiame|reemplazar|reemplaza|sustituir)\s+(.+?)\s+(?:por|x)\s+(.+?)$/);
-  if (!cambio) return null;
 
-  const origen = cambio[1].trim();
-  const destino = cambio[2].trim();
+  const cambioExplicito = n.match(/\b(?:cambiar|cambia|cambiame|reemplazar|reemplaza|sustituir)\s+(.+?)\s+(?:por|x)\s+(.+?)$/);
+  if (cambioExplicito) {
+    return construirModificacion(cambioExplicito[1], cambioExplicito[2]);
+  }
+
+  const cambioSinVerbo = n.match(/\b(.+?)\s+(?:por|x)\s+(pollo|salmon|camaron|carne|beef)\b/);
+  if (cambioSinVerbo && /\b(kanikama|camaron|pollo|salmon|palta|queso|cebollin|champiñon|champinon|champignon)\b/.test(cambioSinVerbo[1])) {
+    return construirModificacion(cambioSinVerbo[1], cambioSinVerbo[2]);
+  }
+
+  if (/\b(tod[oa]s?|todo completo|entero|entera)\s+(?:con|de)\s+pollo\b/.test(n)) {
+    return {
+      origen: 'proteínas base',
+      destino: 'pollo',
+      recargo: 2000,
+      nota: 'cambiar proteínas base por pollo (+$2.000)',
+    };
+  }
+
+  return null;
+}
+
+function construirModificacion(origenRaw: string, destinoRaw: string): ModificacionDetectada | null {
+  const origen = origenRaw
+    .replace(/\b(el|la|los|las|y|tambien|también)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const destino = destinoRaw.trim();
   if (!origen || !destino) return null;
 
   const premium = /\b(salmon|carne|beef)\b/.test(destino);
-  const recargo = premium ? 1500 : 1000;
+  const origenes = origen.split(/\s+/).filter((palabra) =>
+    /\b(kanikama|camaron|pollo|salmon|palta|queso|cebollin|champiñon|champinon|champignon|proteinas|base)\b/.test(palabra)
+  );
+  const cantidadCambios = Math.max(1, new Set(origenes).size);
+  const recargoUnitario = premium ? 1500 : 1000;
+  const recargo = recargoUnitario * cantidadCambios;
   return {
     origen,
     destino,
@@ -147,6 +176,9 @@ export function debeEvitarDuplicado(texto: string) {
 }
 
 export function aplicarModificacionAItem(item: ItemCarritoWA, modificacion: ModificacionDetectada): ItemCarritoWA {
+  const yaExiste = item.modifiers.some((mod) => normalizar(mod.name) === normalizar(`Cambio ${modificacion.origen} por ${modificacion.destino}`));
+  if (yaExiste || normalizar(item.notes).includes(normalizar(modificacion.nota))) return item;
+
   const modifiers: ModificadorItem[] = [
     ...item.modifiers,
     { name: `Cambio ${modificacion.origen} por ${modificacion.destino}`, priceDelta: modificacion.recargo },

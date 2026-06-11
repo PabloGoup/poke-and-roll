@@ -13,6 +13,7 @@ import {
 } from './types';
 import { construirResumenPedido, esCierreDePedido, normalizarTexto, pareceReclamo } from './flujo-utils';
 import { detectarIntencionVisual } from '@/lib/catalogo-visual';
+import { detectarModificacion } from './intenciones-pedido';
 
 // --------------- Tipo de handler ----------------------------
 
@@ -85,6 +86,11 @@ function quiereCambiarOrdenCreada(texto: string) {
 function esModalidadEntrega(texto: string) {
   const n = normalizar(texto);
   return /\b(retiro|retirar|paso a buscar|buscar al local|en local|delivery|despacho|envio|envío|domicilio)\b/.test(n);
+}
+
+function esReferenciaProductoActivo(texto: string) {
+  const n = normalizar(texto);
+  return /\b(en la|en el|la de|el de|esa|ese|esa misma|ese mismo|a la|al de)\b/.test(n);
 }
 
 function clienteDiceQueYaPidio(texto: string) {
@@ -235,6 +241,15 @@ function resolverAfirmacionConContexto(
   if (!esAfirmacionCorta(msg.texto)) return msg;
   const ultimaPregunta = obtenerUltimaPreguntaAgente(msg.historial);
   if (!ultimaPregunta) return msg;
+  const preguntaNormalizada = normalizar(ultimaPregunta);
+
+  if (sesion?.items?.length && /\b(cerramos|cerrar|dejamos ese pedido|eso seria todo|eso sería todo|algo mas|algo más)\b/.test(preguntaNormalizada)) {
+    return { ...msg, texto: 'solo eso' };
+  }
+
+  if (sesion?.items?.length && /\b(confirmas|confirmar|pedido esta correcto|pedido está correcto)\b/.test(preguntaNormalizada)) {
+    return { ...msg, texto: 'confirmo el pedido' };
+  }
 
   const producto = extraerProductoDeAclaracion(ultimaPregunta);
   if (producto && !sesion?.items?.length) {
@@ -281,8 +296,16 @@ async function resolverModuloDeterministico(
     return { respuesta: respuestaPedidoYaRegistrado(sesion) };
   }
 
-  if (sesion?.items?.length && (esCierreDePedido(msg.texto) || esNoAntePreguntaDeAgregar(msg.texto))) {
+  if (
+    sesion?.items?.length &&
+    moduloActual !== 'CONFIRMACION' &&
+    (esCierreDePedido(msg.texto) || esNoAntePreguntaDeAgregar(msg.texto))
+  ) {
     return { respuesta: respuestaCerrarCarrito(sesion) };
+  }
+
+  if (sesion?.items?.length && (detectarModificacion(msg.texto) || esReferenciaProductoActivo(msg.texto))) {
+    return { modulo: 'PEDIDOS' };
   }
 
   if (sesion?.items?.length && esPreguntaContenidoProducto(msg.texto)) {

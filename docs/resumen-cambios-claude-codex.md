@@ -587,3 +587,52 @@ Se agregó `lib/modulos/intenciones-pedido.ts` como motor determinístico de int
 ### 10.5 Pendiente
 
 Ampliar el motor determinístico con más productos frecuentes del menú y convertir esta lógica en tests automáticos de conversación.
+
+## 11. Actualización 2026-06-11 — Experiencia de agente único con handlers internos
+
+### 11.1 Decisión arquitectónica
+
+No se volvió a un agente único monolítico. Se implementó una experiencia equivalente para el cliente: un solo orquestador interpreta el estado conversacional y usa los módulos como handlers de tarea.
+
+Objetivo:
+
+- Evitar que `BIENVENIDA`, `CONSULTAS`, `PEDIDOS` o `CONFIRMACION` reinicien la conversación.
+- Resolver "sí", "no", "esa", "a la de 30 fritas" y cambios de ingredientes contra el carrito y la última pregunta del agente.
+- Mantener validación contra catálogo, media y creación de orden en los módulos existentes.
+
+### 11.2 Cambios implementados
+
+- `lib/modulos/dispatcher.ts`
+  - Interpreta afirmaciones cortas según la última pregunta del agente.
+  - Si el agente preguntó "¿cerramos el pedido?", un "sí" se convierte en cierre de carrito.
+  - Si el agente preguntó "¿confirmas el pedido?", un "sí" se convierte en confirmación explícita.
+  - Con carrito activo, las modificaciones y referencias al producto activo vuelven siempre a `PEDIDOS`.
+  - `CONFIRMACION` queda protegida para que un "no" no se interprete como cierre del carrito.
+
+- `lib/modulos/intenciones-pedido.ts`
+  - Detecta "todas con pollo", "todos con pollo" y "todo completo con pollo".
+  - Detecta modificaciones sin verbo: "el kanikama y el camarón por pollo".
+  - Calcula recargos múltiples cuando hay más de un ingrediente/proteína reemplazada.
+  - Evita aplicar dos veces la misma modificación al mismo item.
+
+- `lib/modulos/m04-pedidos.ts`
+  - Permite agregar un producto y aplicar una modificación en la misma frase:
+    - "Quiero la promo de 30 fritas pero todas con pollo".
+  - El item entra al carrito ya con nota y recargo.
+
+### 11.3 Casos cubiertos
+
+- "Quiero la promo de 30 fritas pero todas con pollo" → agrega promo y aplica cambio por pollo.
+- "Quiero todos con pollo" con un item activo → aplica cambio al item activo.
+- "El kanikama y el camarón por pollo" → cambio doble con recargo total.
+- "A la de 30 fritas" después de una modificación pendiente → vuelve a `PEDIDOS`, no deriva a humano.
+- "Sí" después de "¿cerramos el pedido?" → resumen y confirmación.
+
+### 11.4 Validación
+
+- `npm run build`: OK.
+- Verificación local de detección determinística para:
+  - "Quiero la promo de 30 fritas pero todas con pollo"
+  - "Quiero todos con pollo"
+  - "El kanikama y el camarón por pollo"
+  - "cambiar kanikama x pollo"

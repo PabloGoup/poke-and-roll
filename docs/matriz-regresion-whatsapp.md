@@ -20,6 +20,9 @@ Los módulos M01-M13 son handlers de tarea. La decisión de qué handler corre p
 | Confirmación de aclaración | Último agente preguntó "¿te refieres a Promo 30 piezas fritas?" | "Sí" | Agregar `Promo 30 piezas fritas` al carrito, no volver a bienvenida. |
 | Pregunta sobre item anotado | Carrito con promo | "Qué trae esa promoción?" | Responder sobre el último item del carrito, sin preguntar "¿cuál?". |
 | Modificación con un item | Carrito con un solo producto | "Cambiar kanikama x pollo" | Aplicar cambio al único item y sumar recargo, sin preguntar producto. |
+| Modificación en la misma frase | Sin sesión o consulta | "Quiero la promo de 30 fritas pero todas con pollo" | Agregar promo y aplicar cambio de proteínas base por pollo con recargo, sin pedir producto de nuevo. |
+| Modificación sin verbo | Carrito con un solo producto | "El kanikama y el camarón por pollo" | Interpretar cambio doble por pollo y aplicar recargo total al item activo. |
+| Referencia al producto activo | Carrito con modificación pendiente | "A la de 30 fritas" | Aplicar la modificación pendiente a la promo activa, sin derivar a humano. |
 | Evitar duplicado | Carrito ya contiene promo 30 fritas | "Quiero las 30 fritas" | No duplicar; confirmar que ya está anotado salvo que pida otra. |
 | Cierre de pedido | Carrito activo | "No", "solo eso", "no, solo eso" | Resumen + `CONFIRMACION`. |
 | Confirmación explícita | Resumen mostrado | "Sí" | `TIPO_ENTREGA`. |

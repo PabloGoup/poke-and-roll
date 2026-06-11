@@ -137,3 +137,23 @@ Comando: NODE_OPTIONS="--experimental-websocket" npx tsx scripts/test-e2e.ts
 INTEGRACIÓN COMPLETA — las 8 oleadas (0-7) cerradas. Pendientes de producción (fuera del alcance
 de la integración): tokens WABA reales, env vars SUPABASE_PEDIDOS_* en Vercel, suscripción del
 campo messages en Meta Developer Console.
+
+## Log del Director — 2026-06-11 (fix crítico post-deploy: WebSocket Node 20)
+
+**BUG:** El agente respondía siempre con "En este momento necesito derivarte con nuestro equipo..."
+en el primer mensaje de cualquier conversación WhatsApp.
+
+**Causa raíz:** `lib/supabase-pedidos.ts` crea el cliente Supabase a nivel de módulo (línea 25).
+`@supabase/supabase-js` intenta inicializar `RealtimeClient` con WebSocket al momento de import.
+Node 20 no tiene WebSocket nativo; sin `--experimental-websocket` (que Next.js/Vercel NO pasan),
+el import lanza `"Node.js 20 detected without native WebSocket support"`.
+El dispatcher capturaba esa excepción y retornaba `respuestaEscalada()` sin llegar a M01.
+
+**Fix:** Instalado `ws` (npm install ws + @types/ws) y configurado como transporte en createClient:
+```typescript
+const ws = require('ws') as typeof WebSocket;
+const supabase = createClient(url, key, { realtime: { transport: ws } });
+```
+Build de producción y `npx tsx` importan el módulo sin error.
+
+zonas-despacho.ts NO necesitó el mismo fix (crea el cliente de forma lazy dentro de una función).

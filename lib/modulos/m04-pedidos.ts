@@ -144,8 +144,12 @@ export async function ejecutar(
         };
       }
 
-      const nuevosItems = [...itemsActuales, ...resueltos];
-      const agregado = resueltos[0];
+      const modificacionEnPedido = detectarModificacion(msg.texto);
+      const resueltosFinales = modificacionEnPedido
+        ? resueltos.map((item) => aplicarModificacionAItem(item, modificacionEnPedido))
+        : resueltos;
+      const nuevosItems = [...itemsActuales, ...resueltosFinales];
+      const agregado = resueltosFinales[0];
       return {
         respuesta: `Agregado: ${agregado.quantity}x ${agregado.productName} a ${formatearPrecio(agregado.unitPrice)}${agregado.notes ? ` (${agregado.notes})` : ''}. ¿Quieres agregar algo más o cerramos el pedido?`,
         moduloSiguiente: 'PEDIDOS',
