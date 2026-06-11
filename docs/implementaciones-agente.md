@@ -1,6 +1,39 @@
 # Implementaciones del agente omnicanal
 
-Ultima actualizacion: 2026-06-10
+Ultima actualizacion: 2026-06-11
+
+## 27. Flujo completo de atención por WhatsApp
+
+Fecha: 2026-06-11
+
+Archivo:
+
+- `docs/flujo-completo-atencion-whatsapp.md`
+
+Se documentó el flujo operativo completo para atención al cliente por WhatsApp, cubriendo:
+
+- Saludo, consultas, menú, catálogo y promociones.
+- Recomendaciones comerciales.
+- Toma de pedido.
+- Cambios, extras, ingredientes quitados y reglas de cobro.
+- Alergias y restricciones.
+- Confirmación, retiro, delivery, dirección y pagos.
+- Creación de orden en Supabase/POS.
+- Cambios post-confirmación.
+- Cancelaciones.
+- Estado de pedido, pedido listo y despacho.
+- Reclamos, devoluciones, problemas de pago y escalamiento humano.
+- Clientes frecuentes, abandono, mensajes no textuales, errores técnicos y postventa.
+
+Reglas destacadas:
+
+- Quitar ingredientes no tiene costo.
+- Cambiar interior principal tiene recargo.
+- Cambios por salmón o carne cuestan más.
+- Cambiar envoltura tiene recargo.
+- No se trabaja envuelto en salmón.
+- El agente no debe inventar productos, precios, stock, tiempos, delivery ni descuentos.
+- WhatsApp es el canal operativo de pedidos; Instagram/Facebook derivan a WhatsApp o sitio web.
 
 ## 25. Verificación de empresa Meta aprobada — Goup Soluciones
 

@@ -31,8 +31,10 @@ Actualizado durante la ejecución guiada:
 | Validar catálogo/RPC | ✅ Hecho | `jsonb_array_length(public.buscar_productos_activos())` devolvió `78` productos activos. |
 | Perfil técnico Bot WhatsApp | ✅ Hecho | Se usó un perfil real existente de `public.profiles` y se actualizó `WHATSAPP_BOT_CASHIER_ID` en `.env.local` y Vercel Production/Preview. |
 | Prueba transaccional de pedido | ✅ Hecho | `create_storefront_order` respondió con JSON dentro de `begin ... rollback` y la verificación posterior devolvió `0/0`. |
-| Configurar credenciales WhatsApp por local | ⬜ Pendiente | El local `Sushi Poke & Roll` existe, pero `Local.waPhoneId` y `Local.waToken` están vacíos. |
-| Configurar Database Webhook | ⬜ Pendiente | Usar el mismo secret rotado en header `x-webhook-secret`. |
+| Configurar credenciales WhatsApp por local | ✅ Hecho | `Local.waPhoneId = 1208160645712794` y `waToken` del número sandbox de Meta configurados en Neon. |
+| Webhook WhatsApp Meta configurado | ✅ Hecho | URL `https://goupsoluciones.cl/api/webhooks/whatsapp` + token `poke-roll-webhook` verificados y guardados. Campo `messages` suscrito al WABA. |
+| Número personal como destinatario | ✅ Hecho | Número personal verificado en Meta Developer Console como destinatario del sandbox. |
+| Configurar Database Webhook Supabase | ✅ Hecho | `notify-whatsapp-pedido-listo` en tabla `orders` UPDATE → `https://goupsoluciones.cl/api/webhooks/pedido-listo` con header `x-webhook-secret`. |
 | Deploy nuevo | ✅ Hecho | Redeploy productivo realizado y alias confirmado en `https://goupsoluciones.cl`. |
 | Prueba webhook `pedido-listo` | ✅ Hecho | La ruta responde con secret válido y salta correctamente cuando no hay transición a `listo`. |
 | Prueba E2E | ⬜ Pendiente | WhatsApp → orden → POS/cocina → pedido listo → notificación. |
