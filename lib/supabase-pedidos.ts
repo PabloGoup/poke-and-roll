@@ -61,8 +61,8 @@ export function invalidarCacheProductos() {
 // Sinónimos: mapeo de términos alternativos a como aparecen en el catálogo.
 // "gohan" es equivalente a "poke" — misma preparación, distinto nombre coloquial.
 const SINONIMOS: [RegExp, string][] = [
-  [/\bgohanes?\b/gi, 'poke'],      // "gohan" / "gohanes" = poke bowl
-  [/\bpokee?\b/gi, 'poke'],        // "pokee" / typos
+  [/\bgohan(?:es)?\b/gi, 'poke'],  // "gohan" / "gohanes" = poke bowl
+  [/\bpoke{2,}\b/gi, 'poke'],      // "pokee" / typos con letra repetida
   [/\bbol\b/gi, 'poke'],           // "bol de salmón" → poke de salmón
 ];
 
