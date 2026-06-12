@@ -36,6 +36,7 @@ import {
 
 type ContextoAgenteUnico = {
   historial?: MensajeDespacho['historial'];
+  simulacion?: boolean;
 };
 
 type EstadoFase = NonNullable<EstadoConversacionalWA['fase']>;
@@ -66,11 +67,14 @@ Contrato de respuesta: responde SOLO JSON valido:
 Reglas criticas:
 - No reinicies la conversacion si hay historial o carrito.
 - No saludes salvo que el cliente solo salude y no haya contexto activo.
+- Si saludas al inicio, presentate como Roly de Poke & Roll.
+- Escribe como una persona de atención y ventas: claro, cercano, breve y resolutivo.
 - No inventes productos, precios, promociones, zonas, horarios, stock ni tiempos.
 - Si el cliente pregunta por menu/carta/promociones, el sistema adjunta media; tu texto debe ser corto.
 - Si falta un dato para cerrar pedido, pregunta solo ese dato.
 - Si hay reclamo, alergia severa, reembolso, pedido grande/evento o cambio de orden ya creada, requiereHumano true.
 - No escribas resumen de pedido ni confirmes orden si no aparece en el contexto.
+- No conviertas un resumen del carrito en un producto nuevo.
 `;
 
 let openaiClient: OpenAI | null = null;
@@ -270,8 +274,8 @@ async function responderSolicitudVisual(
   const respuesta =
     intencion === 'promocion'
       ? 'Te envío las promociones vigentes. Si quieres, te ayudo a elegir una.'
-      : intencion === 'catalogo'
-        ? 'Te envío la carta. Si buscas algo específico, puedo ayudarte a elegir.'
+    : intencion === 'catalogo'
+        ? 'Te envío la carta. Si buscas algo específico, puedo ayudarte a elegir rolls, pokes o promociones.'
         : 'Te envío esas opciones. Si quieres, armamos el pedido.';
 
   return conEstado(sesion, {
@@ -530,7 +534,11 @@ function extraerNombreCliente(texto: string, metodoPago: string | null): string 
   return palabras.map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(' ');
 }
 
-async function resolverPagoYCrearOrden(msg: MensajeDespacho, sesion: SesionPedidoCtx): Promise<RespuestaModulo | null> {
+async function resolverPagoYCrearOrden(
+  msg: MensajeDespacho,
+  sesion: SesionPedidoCtx,
+  simulacion = false
+): Promise<RespuestaModulo | null> {
   if (!sesion.modalidad) return null;
   if (sesion.modalidad === 'despacho' && !sesion.direccion) return null;
 
@@ -564,6 +572,23 @@ async function resolverPagoYCrearOrden(msg: MensajeDespacho, sesion: SesionPedid
     nombreCliente,
     telefonoCliente,
   });
+
+  if (simulacion) {
+    return {
+      respuesta: `Pedido listo para registrar a nombre de ${nombreCliente}. En producción aquí se crearía la orden real.`,
+      moduloSiguiente: 'DAR_GRACIAS',
+      moduloEjecutado: 'DAR_GRACIAS',
+      actualizarSesion: {
+        metodoPago,
+        nombreCliente,
+        telefonoCliente,
+        estadoConversacional: actualizarEstado(sesion, {
+          fase: 'orden_creada',
+          ultimaPreguntaUtil: undefined,
+        }),
+      },
+    };
+  }
 
   try {
     const resultado = await crearOrdenWhatsApp(sesionCompleta);
@@ -845,7 +870,7 @@ export async function resolverPasoConversacional(
     const entregaODireccion = await resolverEntregaODireccion(msg, sesion);
     if (entregaODireccion) return entregaODireccion;
 
-    const pago = await resolverPagoYCrearOrden(msg, sesion);
+    const pago = await resolverPagoYCrearOrden(msg, sesion, contexto.simulacion);
     if (pago && (estado.fase === 'pago' || sesion.modalidad)) return pago;
 
     if (esCierreDePedido(texto) || esNegacionSimple(texto)) {
@@ -860,13 +885,13 @@ export async function resolverPasoConversacional(
   if (consultaGeneral) return consultaGeneral;
 
   const ultimoAgente = ultimoMensajeAgente(contexto.historial ?? msg.historial);
-  if (esAfirmacion(texto) && sesion?.items?.length && /cerramos|algo mas|algo más|pedido correcto|confirmas/i.test(ultimoAgente)) {
-    return /confirmas|pedido correcto/i.test(ultimoAgente) ? pedirEntrega(sesion) : cerrarCarrito(sesion);
+  if (esAfirmacion(texto) && sesion?.items?.length && /cerramos|algo mas|algo más|pedido correcto|confirmas|confirmar|confirmemos/i.test(ultimoAgente)) {
+    return /confirmas|confirmar|confirmemos|pedido correcto/i.test(ultimoAgente) ? pedirEntrega(sesion) : cerrarCarrito(sesion);
   }
 
   if (/^hola|buenas|buen dia|buen día|buenas tardes|buenas noches$/i.test(texto.trim())) {
     return conEstado(sesion, {
-      respuesta: '¡Hola! Soy tu asistente virtual de Sushi Poke & Roll. ¿En qué puedo ayudarte?',
+      respuesta: '¡Hola! Soy Roly de Poke & Roll. ¿En qué puedo ayudarte hoy?',
       moduloEjecutado: 'BIENVENIDA',
     }, 'inicio');
   }

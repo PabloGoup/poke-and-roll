@@ -41,7 +41,13 @@ export async function obtenerOCrearConversacion(params: {
       clienteId: params.clienteId,
       canal: params.canal,
       ...(params.localId ? { localId: params.localId } : {}),
-      estado: { in: ["activa", "pausada"] }
+      estado: {
+        in: [
+          EstadoConversacion.activa,
+          EstadoConversacion.pausada,
+          EstadoConversacion.esperando_humano
+        ]
+      }
     },
     orderBy: { actualizadoEn: "desc" }
   });

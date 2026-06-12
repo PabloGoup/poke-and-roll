@@ -797,3 +797,69 @@ Causa: `resolverCoberturaDespacho()` y algunas consultas de despacho priorizaban
 
 - `npx tsx scripts/regresion-agente-unico-whatsapp.ts`: OK.
 - `npm run build`: OK.
+
+## 17. Actualización 2026-06-11 — Unificación de historial por cliente en bandejas
+
+### 17.1 Problema detectado
+
+La interfaz mostraba varias entradas para el mismo cliente cuando ese cliente iniciaba nuevos mensajes después de escalaciones o conversaciones anteriores. Esto rompía la lectura comercial: el local veía muchos "Pablo Toledo" en vez de un historial único del cliente.
+
+Causa principal: al buscar una conversación abierta, el backend reutilizaba solo estados `activa` y `pausada`, dejando fuera `esperando_humano`. Si el cliente escribía de nuevo mientras la conversación estaba escalada, se podía crear una nueva conversación para el mismo contacto.
+
+### 17.2 Cambios implementados
+
+- `lib/db-helpers.ts`
+  - `obtenerOCrearConversacion()` ahora reutiliza conversaciones en estado `activa`, `pausada` y `esperando_humano`.
+  - Esto evita nuevos duplicados cuando el cliente vuelve a escribir después de una derivación humana.
+
+- `app/api/conversaciones/route.ts`
+  - La API agrupa conversaciones por `localId + canal + clienteId`.
+  - La bandeja devuelve un solo contacto por canal con los mensajes recientes combinados.
+  - Se preservan los registros históricos en base de datos para auditoría; no se borra información.
+  - El estado visible se toma de la conversación más reciente para evitar que escalaciones antiguas mantengan al cliente marcado como humano para siempre.
+
+### 17.3 Validación
+
+- `npm run build`: OK.
+
+## 18. Actualización 2026-06-11 — Laboratorio alineado con agente único WhatsApp
+
+### 18.1 Problema detectado
+
+El laboratorio de la interfaz respondía usando `lib/agente.ts`, mientras el webhook real de WhatsApp ya usaba `lib/whatsapp/agente-unico-atencion.ts`. Eso hacía que las pruebas desde interfaz se sintieran distintas y pudieran romper estado conversacional: confirmaba pedidos por LLM, luego contradecía despacho y después intentaba validar un resumen como si fuera un producto nuevo.
+
+### 18.2 Cambios implementados
+
+- `app/api/agente/procesar-mensaje/route.ts`
+  - Para canal WhatsApp, el laboratorio ahora usa `resolverPasoConversacional()` del agente único.
+  - Reconstruye una sesión simulada desde el historial del chat de prueba.
+  - Devuelve el mismo contrato visual que la interfaz espera (`respuesta`, `requiereHumano`, `catalogoVisual`).
+
+- `lib/whatsapp/agente-unico-atencion.ts`
+  - Se agregó modo `simulacion` para que el laboratorio no cree órdenes reales.
+  - Se reforzó la interpretación de afirmaciones como "sí, lo confirmo" cuando el último mensaje del agente pidió confirmar.
+
+### 18.3 Validación
+
+- `npm run build`: OK.
+- Prueba directa del endpoint local quedó bloqueada al resolver productos porque en este entorno faltan `SUPABASE_PEDIDOS_URL` o `SUPABASE_PEDIDOS_ANON_KEY`; en Vercel debe usar las variables ya configuradas.
+
+## 19. Actualización 2026-06-11 — Recuperación de tono comercial de `agent.ts`
+
+### 19.1 Decisión
+
+El agente anterior (`lib/agente.ts`) entendía mejor algunas solicitudes porque funcionaba como un agente conversacional amplio. El problema es que también podía tomar decisiones críticas sin estado determinístico, lo que generaba quiebres en carrito, despacho, pago y cierre.
+
+La decisión arquitectónica es no volver a usarlo como cerebro principal de WhatsApp, sino rescatar su tono y comprensión flexible dentro del agente único controlado.
+
+### 19.2 Cambios implementados
+
+- `lib/whatsapp/agente-unico-atencion.ts`
+  - La bienvenida ahora se presenta como Roly de Poke & Roll.
+  - Las respuestas de carta/catalogo son más comerciales y útiles.
+  - El prompt del fallback LLM refuerza tono humano, breve y vendedor.
+  - Se agregó regla explícita para evitar convertir resúmenes del carrito en productos nuevos.
+
+### 19.3 Validación
+
+- `npm run build`: OK.
