@@ -39,14 +39,13 @@ const workflow = [
 const integrationGroups = [
   {
     id: "channels",
-    label: "Canales Meta",
-    sublabel: "Mensajería oficial",
+    label: "Canales de mensajería",
+    sublabel: "APIs oficiales",
     accent: "#1877F2",
     items: [
       { name: "WhatsApp",  src: "https://cdn.simpleicons.org/whatsapp/25D366"  },
       { name: "Instagram", src: "https://cdn.simpleicons.org/instagram/E4405F" },
       { name: "Facebook",  src: "https://cdn.simpleicons.org/facebook/1877F2"  },
-      { name: "Meta",      src: "https://cdn.simpleicons.org/meta/0866FF"      },
     ],
   },
   {
@@ -219,9 +218,9 @@ export function LandingFeatures() {
         <div className="goup-ecosystem-copy">
           <span>Integraciones</span>
           <h2>Conectado al stack que ya usas.</h2>
-          <p>Canales oficiales de Meta, modelos de IA de última generación y tu infraestructura de datos en una sola plataforma operativa.</p>
+          <p>WhatsApp, Instagram y Facebook Messenger, modelos de IA de última generación y tu infraestructura de datos en una sola plataforma operativa.</p>
           <ul className="goup-ecosystem-bullets">
-            <li>Mensajería vía API oficial de Meta — sin intermediarios</li>
+            <li>Mensajería vía WhatsApp Business API, Instagram y Messenger — sin intermediarios</li>
             <li>Modelos con instrucciones, temperatura y reglas propias</li>
             <li>Stack propio: sin vendor lock-in en datos ni lógica</li>
           </ul>

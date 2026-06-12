@@ -13,7 +13,8 @@ const successBrands = [
     height: 100,
     metric: "+42%",
     metricLabel: "pedidos vía WhatsApp",
-    result: "100% de pedidos gestionados por el agente sin operadores adicionales."
+    result: "100% de pedidos gestionados por el agente sin operadores adicionales.",
+    visible: true
   },
   {
     name: "EntreAmigos Gourmet",
@@ -22,7 +23,8 @@ const successBrands = [
     height: 80,
     metric: "3×",
     metricLabel: "más pedidos confirmados",
-    result: "Triplicaron pedidos confirmados sin sumar personal al equipo de atención."
+    result: "Triplicaron pedidos confirmados sin sumar personal al equipo de atención.",
+    visible: false
   },
   {
     name: "A la Romana Pizzería",
@@ -31,7 +33,8 @@ const successBrands = [
     height: 80,
     metric: "−65%",
     metricLabel: "tiempo de respuesta",
-    result: "Pasaron de 12 min promedio por consulta a respuesta inmediata 24/7."
+    result: "Pasaron de 12 min promedio por consulta a respuesta inmediata 24/7.",
+    visible: false
   },
   {
     name: "Fu-zion Restobar",
@@ -40,7 +43,8 @@ const successBrands = [
     height: 80,
     metric: "0",
     metricLabel: "pedidos perdidos en noche",
-    result: "El agente cubre el horario nocturno y fines de semana sin supervisión humana."
+    result: "El agente cubre el horario nocturno y fines de semana sin supervisión humana.",
+    visible: false
   },
   {
     name: "ChorriBurgers",
@@ -49,7 +53,8 @@ const successBrands = [
     height: 80,
     metric: "+38%",
     metricLabel: "ticket promedio",
-    result: "El agente sugiere combos y promociones activas en cada conversación de venta."
+    result: "El agente sugiere combos y promociones activas en cada conversación de venta.",
+    visible: false
   }
 ];
 
@@ -86,10 +91,10 @@ export function SuccessCases() {
 
   return (
     <section className="goup-success goup-landing-section" id="casos" ref={rootRef}>
-      <p className="goup-success-title">Locales que ya operan con agentes Goup</p>
+      <p className="goup-success-title">Operando con agentes Goup</p>
 
       <div className="goup-success-cards" aria-label="Casos de éxito">
-        {successBrands.map((brand) => (
+        {successBrands.filter((b) => b.visible).map((brand) => (
           <article className="goup-success-card" key={brand.name}>
             <div className="goup-success-card-logo">
               <Image
