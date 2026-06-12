@@ -572,14 +572,14 @@ export function CommercialConfig() {
             </div>
           )}
 
-          <div className="action-grid">
+          <div className="rules-list">
             {acciones.map((accion) => {
               const Icono = accion.icono;
 
               if (editandoReglaId === accion.id) {
                 return (
-                  <div className="action-card active editing" key={accion.id}>
-                    <div className="action-icon"><Icono size={16} /></div>
+                  <div className="rule-row rule-row-editing" key={accion.id}>
+                    <div className="rule-row-icon" style={{ paddingTop: 2, flexShrink: 0 }}><Icono size={13} /></div>
                     <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "6px" }}>
                       <input
                         className="rule-edit-input"
@@ -592,7 +592,7 @@ export function CommercialConfig() {
                         value={accion.descripcion}
                         onChange={(e) => setAcciones((prev) => prev.map((a) => a.id === accion.id ? { ...a, descripcion: e.target.value } : a))}
                       />
-                      <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                      <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center" }}>
                         <select
                           value={accion.prioridad}
                           onChange={(e) => setAcciones((prev) => prev.map((a) => a.id === accion.id ? { ...a, prioridad: e.target.value as AccionComercial["prioridad"] } : a))}
@@ -618,16 +618,23 @@ export function CommercialConfig() {
               }
 
               return (
-                <div className={`action-card${accion.activa ? " active" : ""}`} key={accion.id}>
-                  <button className="action-card-toggle" onClick={() => toggleAccion(accion.id)} type="button" aria-label={`${accion.activa ? "Desactivar" : "Activar"} regla`}>
-                    <div className="action-icon"><Icono size={16} /></div>
-                    <div>
-                      <strong>{accion.titulo}</strong>
-                      <p>{accion.descripcion}</p>
-                      <span>{accion.prioridad} · {accion.canal}</span>
-                    </div>
-                  </button>
-                  <div className="action-card-controls">
+                <div className={`rule-row${accion.activa ? " is-active" : ""}`} key={accion.id}>
+                  <div className="rule-row-dot" />
+                  <div className="rule-row-icon"><Icono size={13} /></div>
+                  <div className="rule-row-body">
+                    <span className="rule-row-title">{accion.titulo}</span>
+                    <span className="rule-row-desc">{accion.descripcion}</span>
+                  </div>
+                  <div className="rule-row-meta">
+                    <span className={`rule-badge rule-prio-${accion.prioridad}`}>{accion.prioridad}</span>
+                    <span className="rule-badge rule-canal">{accion.canal}</span>
+                  </div>
+                  <label className="rule-toggle" title={accion.activa ? "Desactivar" : "Activar"}>
+                    <input type="checkbox" checked={accion.activa} onChange={() => toggleAccion(accion.id)} />
+                    <span className="rule-toggle-track" />
+                    <span className="rule-toggle-thumb" />
+                  </label>
+                  <div className="rule-row-actions">
                     <button className="icon-button" type="button" title="Editar" onClick={() => setEditandoReglaId(accion.id)}><FileText size={12} /></button>
                     {accion.id.startsWith("custom-") && (
                       <button className="icon-button" type="button" title="Eliminar" onClick={() => setAcciones((prev) => prev.filter((a) => a.id !== accion.id))}><Trash2 size={12} /></button>
@@ -677,19 +684,21 @@ export function CommercialConfig() {
               </label>
             </div>
           ) : (
-            <div className="visual-grid">
+            <div className="catalog-list">
               {imagenes.map((img) => (
-                <article className={`visual-card${img.prioridadEnvio ? " primary" : ""}`} key={img.id}>
-                  {esPdf(img.url, img.nombre) ? (
-                    <a className="visual-file-preview" href={img.url} rel="noreferrer" target="_blank">
-                      <FileText size={34} />
-                      <span>PDF</span>
-                    </a>
-                  ) : (
-                    <Image alt={img.nombre} height={180} src={img.url} unoptimized width={240} />
-                  )}
-                  <div>
-                    <strong>{img.prioridadEnvio ? "Primera opcion" : img.nombre}</strong>
+                <div className={`catalog-row${img.prioridadEnvio ? " is-primary" : ""}`} key={img.id}>
+                  <div className="catalog-thumb">
+                    {esPdf(img.url, img.nombre) ? (
+                      <a className="catalog-thumb-pdf" href={img.url} rel="noreferrer" target="_blank">
+                        <FileText size={18} />
+                      </a>
+                    ) : (
+                      <Image alt={img.nombre} height={44} src={img.url} unoptimized width={44} style={{ objectFit: "cover", width: "100%", height: "100%" }} />
+                    )}
+                    {img.prioridadEnvio && <span className="catalog-primary-pip">1°</span>}
+                  </div>
+                  <div className="catalog-row-info">
+                    <span className="catalog-row-name" title={img.nombre}>{img.nombre}</span>
                     <select
                       aria-label={`Tipo de archivo ${img.nombre}`}
                       value={img.tipo}
@@ -700,12 +709,26 @@ export function CommercialConfig() {
                       <option value="roll_dia">Rolls / destacados</option>
                       <option value="menu_dia">Pokes / gohan</option>
                     </select>
-                    <div className="visual-actions">
-                      <button onClick={() => marcarPrioritaria(img.id)} type="button">Enviar primero</button>
-                      <button onClick={() => setImagenes((prev) => prev.filter((item) => item.id !== img.id))} type="button"><Trash2 size={12} /></button>
-                    </div>
                   </div>
-                </article>
+                  <div className="catalog-row-actions">
+                    <button
+                      className={`icon-button${img.prioridadEnvio ? " catalog-star-active" : ""}`}
+                      onClick={() => marcarPrioritaria(img.id)}
+                      title="Enviar primero"
+                      type="button"
+                    >
+                      <Star size={12} />
+                    </button>
+                    <button
+                      className="icon-button"
+                      onClick={() => setImagenes((prev) => prev.filter((item) => item.id !== img.id))}
+                      title="Eliminar"
+                      type="button"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           )}

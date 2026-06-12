@@ -365,13 +365,6 @@ function ReviewerGuide() {
             </div>
           </li>
           <li>
-            <CheckCircle size={15} />
-            <div>
-              <strong>WhatsApp Business</strong>
-              <p>Escribe al número <code>+56 9 4099 9386</code>. El agente responde consultas de menú, delivery y pedidos.</p>
-            </div>
-          </li>
-          <li>
             <MsgIcon size={15} />
             <div>
               <strong>Credenciales de acceso al dashboard</strong>

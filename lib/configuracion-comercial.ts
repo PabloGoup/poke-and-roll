@@ -45,6 +45,59 @@ export type CatalogoVisualInput = {
   activo: boolean;
 };
 
+type ReglaComercialLeida = {
+  id: string;
+  titulo: string;
+  descripcion: string;
+  activa: boolean;
+  prioridad: "alta" | "media" | "baja";
+  canal: "todos" | "whatsapp" | "instagram" | "facebook";
+};
+
+const REGLAS_RESUELTAS_POR_CODIGO_WHATSAPP = new Set([
+  "catalogo-visual",
+  "sin-palta-alergenos",
+  "respuesta-breve"
+]);
+
+function claveRegla(texto: string) {
+  return texto
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+export function formatearReglasAnexasWhatsApp(reglas: ReglaComercialLeida[]) {
+  const vistas = new Set<string>();
+  const anexas: ReglaComercialLeida[] = [];
+
+  for (const regla of reglas) {
+    if (
+      !regla.activa
+      || REGLAS_RESUELTAS_POR_CODIGO_WHATSAPP.has(regla.id)
+      || (regla.canal !== "todos" && regla.canal !== "whatsapp")
+    ) {
+      continue;
+    }
+
+    const clave = claveRegla(`${regla.titulo} ${regla.descripcion}`);
+    if (!clave || vistas.has(clave)) continue;
+    vistas.add(clave);
+    anexas.push(regla);
+  }
+
+  return anexas
+    .sort((a, b) => {
+      const orden = { alta: 0, media: 1, baja: 2 };
+      return orden[a.prioridad] - orden[b.prioridad];
+    })
+    .slice(0, 12)
+    .map((regla) => `- ${regla.titulo}: ${regla.descripcion.slice(0, 500)}`)
+    .join("\n");
+}
+
 export const reglasComercialesDefault: ReglaComercialInput[] = [
   {
     id: "catalogo-visual",

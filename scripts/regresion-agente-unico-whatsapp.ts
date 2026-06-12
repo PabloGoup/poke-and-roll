@@ -1,6 +1,7 @@
 import { procesarWhatsAppAgenteUnico, resolverPasoConversacional } from '../lib/whatsapp/agente-unico-atencion';
 import type { ItemCarritoWA, MensajeDespacho, SesionPedidoCtx } from '../lib/modulos/types';
 import { detectarItemPedidoDeterministico, detectarModificacion } from '../lib/modulos/intenciones-pedido';
+import { formatearReglasAnexasWhatsApp } from '../lib/configuracion-comercial';
 
 function sesionBase(items: ItemCarritoWA[] = []): SesionPedidoCtx {
   return {
@@ -41,6 +42,48 @@ function msg(texto: string, historial?: MensajeDespacho['historial']): MensajeDe
 }
 
 async function run() {
+  const reglasAnexas = formatearReglasAnexasWhatsApp([
+    {
+      id: 'custom-upsell',
+      titulo: 'Ofrecer bebida',
+      descripcion: 'Ofrecer una bebida cuando el cliente cierre el pedido.',
+      activa: true,
+      prioridad: 'media',
+      canal: 'whatsapp',
+    },
+    {
+      id: 'custom-upsell-duplicada',
+      titulo: 'Ofrecer bebida',
+      descripcion: 'Ofrecer una bebida cuando el cliente cierre el pedido.',
+      activa: true,
+      prioridad: 'media',
+      canal: 'todos',
+    },
+    {
+      id: 'catalogo-visual',
+      titulo: 'Enviar catálogo',
+      descripcion: 'Enviar catálogo visual.',
+      activa: true,
+      prioridad: 'alta',
+      canal: 'todos',
+    },
+    {
+      id: 'solo-instagram',
+      titulo: 'Historia diaria',
+      descripcion: 'Publicar una historia.',
+      activa: true,
+      prioridad: 'baja',
+      canal: 'instagram',
+    },
+  ]);
+  if ((reglasAnexas.match(/Ofrecer bebida/g) ?? []).length !== 1
+    || /Enviar catálogo|Historia diaria/.test(reglasAnexas)) {
+    console.error('[FAIL] reglas anexas whatsapp deduplicadas y aisladas');
+    process.exitCode = 1;
+    return;
+  }
+  console.log('[OK] reglas anexas whatsapp deduplicadas y aisladas');
+
   const parserCasos = [
     {
       nombre: 'parser promo con falta grotesca',

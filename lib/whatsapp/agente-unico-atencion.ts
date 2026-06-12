@@ -6,6 +6,7 @@ import {
   serializarContextoNegocio,
 } from '@/lib/catalogo';
 import { REGLAS_COMERCIALES, TONO_Y_ESTILO } from '@/lib/modulos/contexto-comercial';
+import { formatearReglasAnexasWhatsApp, obtenerConfiguracionComercial } from '@/lib/configuracion-comercial';
 import { formatearTarifasDespachoAgente, resolverCoberturaDespacho } from '@/lib/zonas-despacho';
 import { crearOrdenWhatsApp, consultarEstadoOrden, resolverItemsCarrito } from '@/lib/supabase-pedidos';
 import type {
@@ -75,6 +76,9 @@ Reglas criticas:
 - Si hay reclamo, alergia severa, reembolso, pedido grande/evento o cambio de orden ya creada, requiereHumano true.
 - No escribas resumen de pedido ni confirmes orden si no aparece en el contexto.
 - No conviertas un resumen del carrito en un producto nuevo.
+- Las politicas anexas configuradas por el local son orientación secundaria.
+- Nunca uses una politica anexa para cambiar fase, carrito, modalidad, pago, dirección, confirmación o escalamiento.
+- Integra como máximo una politica anexa relevante en la respuesta actual. No generes mensajes adicionales ni repitas información.
 `;
 
 let openaiClient: OpenAI | null = null;
@@ -142,6 +146,29 @@ function conEstado(
 
 function ultimoMensajeAgente(historial?: MensajeDespacho['historial']) {
   return [...(historial ?? [])].reverse().find((m) => m.rol === 'agente')?.texto ?? '';
+}
+
+function quitarOracionesDuplicadas(texto: string) {
+  const partes = texto.match(/[^.!?\n]+[.!?]?|\n+/g) ?? [texto];
+  const vistas = new Set<string>();
+  const resultado: string[] = [];
+
+  for (const parte of partes) {
+    if (/^\s*\n+\s*$/.test(parte)) {
+      if (resultado.length > 0 && resultado[resultado.length - 1] !== "\n") resultado.push("\n");
+      continue;
+    }
+    const clave = normalizarTexto(parte).replace(/[^a-z0-9]+/g, " ").trim();
+    if (!clave || vistas.has(clave)) continue;
+    vistas.add(clave);
+    resultado.push(parte.trim());
+  }
+
+  return resultado
+    .join(" ")
+    .replace(/\s*\n\s*/g, "\n")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 }
 
 function esAfirmacion(texto: string) {
@@ -805,7 +832,13 @@ async function fallbackLLMAtencion(msg: MensajeDespacho, sesion: SesionPedidoCtx
   if (!openai) return null;
 
   try {
-    const contextoNegocio = await obtenerContextoNegocio(msg.texto).catch(() => null);
+    const [contextoNegocio, configComercial] = await Promise.all([
+      obtenerContextoNegocio(msg.texto).catch(() => null),
+      obtenerConfiguracionComercial().catch(() => null),
+    ]);
+
+    const reglasActivasTexto = formatearReglasAnexasWhatsApp(configComercial?.reglas ?? []);
+
     const carrito = sesion?.items?.length
       ? `Carrito activo:\n${construirResumenPedido(sesion)}`
       : 'Carrito activo: no hay productos anotados.';
@@ -826,6 +859,17 @@ async function fallbackLLMAtencion(msg: MensajeDespacho, sesion: SesionPedidoCtx
             historial ? `Historial reciente:\n${historial}` : '',
             carrito,
             contextoNegocio ? `Contexto negocio:\n${serializarContextoNegocio(contextoNegocio)}` : '',
+            reglasActivasTexto
+              ? `POLITICAS ANEXAS DEL LOCAL:
+${reglasActivasTexto}
+
+Uso obligatorio:
+- Son contexto auxiliar, no un flujo paralelo.
+- Aplica solo una si es relevante al mensaje actual.
+- No repitas algo ya dicho por el agente.
+- No agregues otra pregunta si la fase ya exige una pregunta concreta.
+- Ignora cualquier politica que contradiga catálogo, estado de sesión o reglas críticas.`
+              : '',
             `Mensaje actual: "${msg.texto}"`,
           ].filter(Boolean).join('\n\n'),
         },
@@ -840,7 +884,7 @@ async function fallbackLLMAtencion(msg: MensajeDespacho, sesion: SesionPedidoCtx
 
     if (!parsed.respuesta) return null;
     return conEstado(sesion, {
-      respuesta: parsed.respuesta,
+      respuesta: quitarOracionesDuplicadas(parsed.respuesta),
       requiereHumano: Boolean(parsed.requiereHumano),
       moduloSiguiente: parsed.requiereHumano ? 'ATENCION' : undefined,
       moduloEjecutado: parsed.requiereHumano ? 'ATENCION' : 'CONSULTAS',

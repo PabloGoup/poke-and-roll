@@ -987,3 +987,21 @@ Validación:
 Validación:
 
 - `npm run build`: OK.
+
+## 25. Actualización 2026-06-12 — Reglas configurables como políticas anexas
+
+- Las reglas activas de Config para WhatsApp se formatean mediante un único helper.
+- Se filtran reglas de otros canales.
+- Se excluyen reglas ya resueltas determinísticamente por código: catálogo visual, alergias y longitud de respuesta.
+- Se eliminan reglas duplicadas antes de enviarlas al LLM.
+- Se limita cantidad y tamaño para evitar sobrecarga del prompt.
+- El prompt establece que son políticas auxiliares, no un flujo paralelo.
+- Una regla configurable no puede cambiar carrito, fase, entrega, dirección, pago, confirmación ni escalamiento.
+- El agente aplica como máximo una política anexa relevante por respuesta.
+- Se eliminan oraciones exactamente duplicadas en respuestas del fallback LLM.
+
+Validación:
+
+- Regresión de aislamiento/deduplicación de reglas: OK.
+- `npx tsx scripts/regresion-agente-unico-whatsapp.ts`: OK.
+- `npm run build`: OK.
