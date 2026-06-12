@@ -106,6 +106,37 @@ async function run() {
       assert: (r: Awaited<ReturnType<typeof procesarWhatsAppAgenteUnico>>) => r.moduloSiguiente === 'FORMAS_PAGO',
     },
     {
+      nombre: 'correccion modalidad vuelve a preguntar entrega',
+      mensaje: msg('no te he dicho si la quiero con retiro o despacho'),
+      sesion: {
+        ...sesionBase([itemPromo30()]),
+        estadoConversacional: { fase: 'confirmacion_carrito' as const },
+      },
+      assert: (r: Awaited<ReturnType<typeof procesarWhatsAppAgenteUnico>>) => r.moduloSiguiente === 'TIPO_ENTREGA',
+    },
+    {
+      nombre: 'si a retiro por fuera cobertura pide pago',
+      mensaje: msg('si'),
+      sesion: {
+        ...sesionBase([itemPromo30()]),
+        estadoConversacional: {
+          fase: 'entrega' as const,
+          aclaracionPendiente: { tipo: 'entrega' as const, valor: 'retiro_local' },
+        },
+      },
+      assert: (r: Awaited<ReturnType<typeof procesarWhatsAppAgenteUnico>>) => r.moduloSiguiente === 'FORMAS_PAGO',
+    },
+    {
+      nombre: 'efectivo con retiro pide nombre',
+      mensaje: msg('efectivo'),
+      sesion: {
+        ...sesionBase([itemPromo30()]),
+        modalidad: 'retiro_local' as const,
+        estadoConversacional: { fase: 'pago' as const },
+      },
+      assert: (r: Awaited<ReturnType<typeof procesarWhatsAppAgenteUnico>>) => /nombre/i.test(r.respuesta) && r.moduloSiguiente === 'FORMAS_PAGO',
+    },
+    {
       nombre: 'modificacion doble aplica a item activo',
       mensaje: msg('El kanikama y el camarón por pollo'),
       sesion: sesionBase([itemPromo30()]),
@@ -141,6 +172,13 @@ async function run() {
       mensaje: msg('Lo quiero envuelto en salmón'),
       sesion: null,
       assert: (r: Awaited<ReturnType<typeof procesarWhatsAppAgenteUnico>>) => /no trabajamos envuelto en salm/i.test(r.respuesta),
+    },
+    {
+      nombre: 'consulta despacho usa distancia no comunas antiguas',
+      mensaje: msg('cuanto sale el despacho?'),
+      sesion: null,
+      assert: (r: Awaited<ReturnType<typeof procesarWhatsAppAgenteUnico>>) =>
+        !/Zona Centro|Providencia/i.test(r.respuesta) && /distancia|calcularlo|calcular/i.test(r.respuesta),
     },
   ];
 

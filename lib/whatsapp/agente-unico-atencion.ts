@@ -6,7 +6,7 @@ import {
   serializarContextoNegocio,
 } from '@/lib/catalogo';
 import { REGLAS_COMERCIALES, TONO_Y_ESTILO } from '@/lib/modulos/contexto-comercial';
-import { resolverCoberturaDespacho } from '@/lib/zonas-despacho';
+import { formatearTarifasDespachoAgente, resolverCoberturaDespacho } from '@/lib/zonas-despacho';
 import { crearOrdenWhatsApp, consultarEstadoOrden, resolverItemsCarrito } from '@/lib/supabase-pedidos';
 import type {
   DireccionCliente,
@@ -221,9 +221,18 @@ function esCambioEnvoltura(texto: string) {
 
 function detectarModalidad(texto: string): 'retiro_local' | 'despacho' | null {
   const n = normalizarTexto(texto);
+  if (/\b(no te he dicho|no dije|no he dicho|aun no|aún no)\b/.test(n) && /\b(retiro|despacho|delivery)\b/.test(n)) return null;
+  if (/\b(no|nop)\b.*\b(despacho|delivery|envio|envío|domicilio)\b/.test(n)) return 'despacho';
+  if (/\b(no|nop)\b.*\b(retiro|retirar|local)\b/.test(n)) return 'retiro_local';
   if (/\b(retiro|retirar|paso a buscar|buscar al local|en local|local)\b/.test(n)) return 'retiro_local';
   if (/\b(delivery|despacho|envio|envío|domicilio|mandar|llevar)\b/.test(n)) return 'despacho';
   return null;
+}
+
+function reclamaModalidadNoDefinida(texto: string) {
+  const n = normalizarTexto(texto);
+  return /\b(no te he dicho|no dije|no he dicho|aun no|aún no)\b/.test(n)
+    && /\b(retiro|despacho|delivery|envio|envío)\b/.test(n);
 }
 
 function referenciaProductoActivo(texto: string) {
@@ -423,6 +432,11 @@ function pedirPagoNombre(sesion: SesionPedidoCtx): RespuestaModulo {
 
 async function resolverEntregaODireccion(msg: MensajeDespacho, sesion: SesionPedidoCtx): Promise<RespuestaModulo | null> {
   const modalidad = detectarModalidad(msg.texto);
+  const estado = estadoBase(sesion);
+
+  if (esAfirmacion(msg.texto) && estado.aclaracionPendiente?.tipo === 'entrega' && estado.aclaracionPendiente.valor === 'retiro_local') {
+    return pedirPagoNombre(sesion);
+  }
 
   if (modalidad === 'retiro_local') {
     return pedirPagoNombre(sesion);
@@ -453,14 +467,21 @@ async function resolverEntregaODireccion(msg: MensajeDespacho, sesion: SesionPed
     if (cobertura.estado !== 'cubierto') {
       return {
         respuesta: cobertura.estado === 'fuera_cobertura'
-          ? 'Para esa dirección no tengo cobertura automática configurada. Puedo dejarlo para retiro o derivarte con el equipo para revisar si se puede coordinar despacho especial.'
+          ? 'Para esa dirección no tengo cobertura automática configurada. ¿Lo dejamos para retiro en local?'
           : 'Recibí la dirección, pero no pude calcular el costo de despacho automáticamente. Te derivo con el equipo para confirmar cobertura y valor antes de cerrar el pedido.',
-        moduloSiguiente: 'ATENCION',
-        moduloEjecutado: 'ATENCION',
-        requiereHumano: true,
+        moduloSiguiente: cobertura.estado === 'fuera_cobertura' ? 'TIPO_ENTREGA' : 'ATENCION',
+        moduloEjecutado: cobertura.estado === 'fuera_cobertura' ? 'TIPO_ENTREGA' : 'ATENCION',
+        requiereHumano: cobertura.estado !== 'fuera_cobertura',
         actualizarSesion: {
           direccion: { street, district },
-          estadoConversacional: actualizarEstado(sesion, { fase: 'humano' }),
+          modalidad: cobertura.estado === 'fuera_cobertura' ? undefined : 'despacho',
+          estadoConversacional: actualizarEstado(sesion, cobertura.estado === 'fuera_cobertura'
+            ? {
+                fase: 'entrega',
+                aclaracionPendiente: { tipo: 'entrega', valor: 'retiro_local' },
+                ultimaPreguntaUtil: '¿Lo dejamos para retiro en local?',
+              }
+            : { fase: 'humano' }),
         },
       };
     }
@@ -658,7 +679,17 @@ async function responderConsultaGeneral(msg: MensajeDespacho, sesion: SesionPedi
     }, 'consulta');
   }
 
-  if (esConsultaHorario(texto) || esConsultaPago(texto) || esConsultaDespacho(texto) || esRecomendacion(texto)) {
+  if (esConsultaDespacho(texto) && !sesion?.items?.length) {
+    const tarifas = await formatearTarifasDespachoAgente().catch(() => []);
+    return conEstado(sesion, {
+      respuesta: tarifas.length > 0
+        ? `Tenemos despacho por distancia desde el local: ${tarifas.map((z) => z.texto).join(', ')}. Para calcularlo exacto, envíame calle, número y comuna.`
+        : 'Hacemos delivery según cobertura. Para calcularlo bien, envíame calle, número y comuna.',
+      moduloEjecutado: 'CONSULTAS',
+    }, 'consulta');
+  }
+
+  if (esConsultaHorario(texto) || esConsultaPago(texto) || esRecomendacion(texto)) {
     const contexto = await obtenerContextoNegocio(texto).catch(() => null);
 
     if (contexto && esConsultaHorario(texto)) {
@@ -679,19 +710,6 @@ async function responderConsultaGeneral(msg: MensajeDespacho, sesion: SesionPedi
         respuesta: `Aceptamos ${medios}. Si quieres, te ayudo a armar el pedido y lo cerramos con el total confirmado.`,
         moduloEjecutado: 'CONSULTAS',
       }, sesion?.items?.length ? 'pedido' : 'consulta');
-    }
-
-    if (contexto && esConsultaDespacho(texto) && !sesion?.items?.length) {
-      const zonas = contexto.zonasDespacho
-        .slice(0, 4)
-        .map((z) => `${z.nombre}: ${formatearPrecioCatalogo(z.costo)} (${z.tiempoEstimadoMin}-${z.tiempoEstimadoMax} min)`)
-        .join(', ');
-      return conEstado(sesion, {
-        respuesta: zonas
-          ? `Tenemos despacho según zona: ${zonas}. Para calcularlo bien, envíame calle, número y comuna.`
-          : 'Hacemos delivery según cobertura. Para calcularlo bien, envíame calle, número y comuna.',
-        moduloEjecutado: 'CONSULTAS',
-      }, 'consulta');
     }
 
     if (contexto && esRecomendacion(texto)) {
@@ -808,13 +826,11 @@ export async function resolverPasoConversacional(
       return responderContenidoProducto(msg, sesion);
     }
 
-    const entregaODireccion = await resolverEntregaODireccion(msg, sesion);
-    if (entregaODireccion) return entregaODireccion;
-
-    const pago = await resolverPagoYCrearOrden(msg, sesion);
-    if (pago && (estado.fase === 'pago' || sesion.modalidad)) return pago;
-
     if (estado.fase === 'confirmacion_carrito' && (esAfirmacion(texto) || esConfirmacionExplicita(texto))) {
+      return pedirEntrega(sesion);
+    }
+
+    if (reclamaModalidadNoDefinida(texto)) {
       return pedirEntrega(sesion);
     }
 
@@ -825,6 +841,12 @@ export async function resolverPasoConversacional(
         moduloEjecutado: 'PEDIDOS',
       }, 'pedido');
     }
+
+    const entregaODireccion = await resolverEntregaODireccion(msg, sesion);
+    if (entregaODireccion) return entregaODireccion;
+
+    const pago = await resolverPagoYCrearOrden(msg, sesion);
+    if (pago && (estado.fase === 'pago' || sesion.modalidad)) return pago;
 
     if (esCierreDePedido(texto) || esNegacionSimple(texto)) {
       return cerrarCarrito(sesion);

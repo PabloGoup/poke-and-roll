@@ -36,10 +36,10 @@ export type ResultadoCoberturaDespacho =
     };
 
 // ── Cliente Supabase (pedidos) ────────────────────────────────────────────────
-// La fuente AUTORITATIVA de zonas es delivery_zones en Supabase: es la misma
-// tabla que valida la RPC create_storefront_order (lower(district) match).
-// Si el costo cotizado al cliente no sale de aquí, la orden puede fallar o
-// cobrar un valor distinto al informado (BLOQUEO 3).
+// Supabase/POS puede tener zonas propias para la creación de órdenes, pero la
+// configuración visible del agente vive en Neon: dirección base + rangos por km.
+// Para la conversación de WhatsApp se prioriza lo que el local configuró en el
+// panel; Supabase queda como fallback si no hay rangos por distancia.
 
 function clienteSupabase() {
   const url = process.env.SUPABASE_PEDIDOS_URL;
@@ -209,22 +209,53 @@ async function resolverCoberturaPorKm(
   };
 }
 
+export async function obtenerTarifasDespachoAgente() {
+  const [restaurante, zonas] = await Promise.all([
+    prisma.configuracionRestaurante.findUnique({ where: { id: "restaurante" } }),
+    prisma.zonaDespacho.findMany({
+      where: {
+        activa: true,
+        distanciaMinKm: { not: null },
+        distanciaMaxKm: { not: null }
+      },
+      orderBy: [{ distanciaMinKm: "asc" }, { costo: "asc" }]
+    })
+  ]);
+
+  return { restaurante, zonas };
+}
+
+export async function formatearTarifasDespachoAgente() {
+  const { zonas } = await obtenerTarifasDespachoAgente();
+  return zonas.map((z) => ({
+    nombre: z.nombre,
+    costo: z.costo,
+    tiempoEstimadoMin: z.tiempoEstimadoMin,
+    tiempoEstimadoMax: z.tiempoEstimadoMax,
+    distanciaMinKm: z.distanciaMinKm,
+    distanciaMaxKm: z.distanciaMaxKm,
+    texto: `${z.distanciaMinKm ?? 0}-${z.distanciaMaxKm ?? '?'} km: $${z.costo.toLocaleString('es-CL')} (${z.tiempoEstimadoMin}-${z.tiempoEstimadoMax} min)`
+  }));
+}
+
 // ── API pública ───────────────────────────────────────────────────────────────
 
 /**
  * Resuelve la cobertura de despacho para una dirección.
  *
  * Orden de resolución:
- * 1. Supabase delivery_zones por comuna (AUTORITATIVO — misma tabla que valida
- *    la RPC create_storefront_order; garantiza costo cotizado = costo aplicado).
- * 2. Si Supabase no tiene zonas o no hay credenciales: sistema legado por km
- *    de Neon (solo informativo; el pedido despacho fallará en la RPC si la
- *    comuna no existe en delivery_zones).
+ * 1. Rangos por distancia configurados en el panel del agente.
+ * 2. Supabase delivery_zones solo como fallback si el local no configuró rangos.
  */
 export async function resolverCoberturaDespacho(
   direccionTexto: string
 ): Promise<ResultadoCoberturaDespacho> {
   const comuna = extraerComunaDeTexto(direccionTexto) ?? direccionTexto;
+
+  const coberturaKm = await resolverCoberturaPorKm(direccionTexto).catch(() => null);
+  if (coberturaKm && coberturaKm.estado !== "sin_configuracion") {
+    return coberturaKm;
+  }
 
   const zonaSupabase = await buscarZonaSupabase(comuna).catch(() => undefined);
 

@@ -741,3 +741,59 @@ Robustecer el agente único ante mensajes reales de WhatsApp: faltas de ortograf
 
 - `npx tsx scripts/regresion-agente-unico-whatsapp.ts`: OK.
 - `npm run build`: OK.
+
+## 15. Actualización 2026-06-11 — Corrección checkout modalidad/pago
+
+### 15.1 Problema detectado
+
+En una conversación real el agente:
+
+- Cerró el carrito y luego asumió delivery sin preguntar retiro/despacho.
+- Interpretó "no te he dicho si la quiero con retiro o despacho" como consulta de retiro.
+- Después de fuera de cobertura, al aceptar retiro volvió a confirmar/agregar el producto.
+- Al recibir "efectivo" respondió como consulta general de medios de pago en vez de pedir nombre.
+
+### 15.2 Cambios implementados
+
+- `lib/whatsapp/agente-unico-atencion.ts`
+  - Frases como "no te he dicho si retiro o despacho" vuelven a `TIPO_ENTREGA`.
+  - "no, la quiero con despacho" se interpreta como despacho.
+  - Fuera de cobertura ofrece retiro sin escalar de inmediato y guarda aclaración pendiente.
+  - "sí" a la oferta de retiro pasa directo a pedir pago/nombre.
+  - En fase de confirmación, la confirmación se resuelve antes que entrega/dirección/fallback.
+  - En fase de pago, "efectivo" guarda método y pregunta nombre.
+
+- `scripts/regresion-agente-unico-whatsapp.ts`
+  - Nuevos casos para corrección de modalidad, aceptación de retiro tras fuera de cobertura y pago efectivo sin nombre.
+
+### 15.3 Validación
+
+- `npx tsx scripts/regresion-agente-unico-whatsapp.ts`: OK.
+- `npm run build`: OK.
+
+## 16. Actualización 2026-06-11 — Prioridad de tarifas de despacho del panel
+
+### 16.1 Problema detectado
+
+El panel tenía dirección base y rangos por distancia configurados para el local, pero el agente respondía zonas antiguas de Supabase/POS como Santiago Centro y Providencia.
+
+Causa: `resolverCoberturaDespacho()` y algunas consultas de despacho priorizaban `delivery_zones` de Supabase antes que la configuración visible del agente (`configuracionRestaurante` + `zonaDespacho`).
+
+### 16.2 Cambios implementados
+
+- `lib/zonas-despacho.ts`
+  - La cobertura WhatsApp ahora prioriza rangos por distancia del panel.
+  - Supabase `delivery_zones` queda como fallback si no hay rangos locales configurados.
+  - Se agregaron helpers para formatear tarifas del agente.
+
+- `lib/whatsapp/agente-unico-atencion.ts`
+  - Las consultas de despacho responden con tarifas por distancia configuradas en el panel.
+  - Ya no lista zonas antiguas de Supabase cuando el local tiene rangos activos.
+
+- `scripts/regresion-agente-unico-whatsapp.ts`
+  - Se agregó regresión para evitar respuestas con `Zona Centro` o `Providencia` cuando se consulta despacho.
+
+### 16.3 Validación
+
+- `npx tsx scripts/regresion-agente-unico-whatsapp.ts`: OK.
+- `npm run build`: OK.
