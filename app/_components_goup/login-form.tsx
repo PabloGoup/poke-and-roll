@@ -4,6 +4,8 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
+import { House } from "lucide-react";
 
 export function LoginForm() {
   const router = useRouter();
@@ -41,6 +43,11 @@ export function LoginForm() {
 
   return (
     <div className="goup-login-wrapper">
+      <Link className="goup-login-home" href="/">
+        <House size={17} />
+        Inicio
+      </Link>
+
       <div className="goup-login-card">
         <div className="goup-login-logo">
           <Image src="/images/goup.png" alt="Goup Soluciones" width={140} height={48} style={{ objectFit: "contain" }} />

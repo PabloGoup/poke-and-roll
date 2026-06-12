@@ -2947,6 +2947,30 @@ blockquote { margin: 0 0 6px; color: var(--muted); font-size: 13px; line-height:
   background-size: auto, auto, 24px 24px;
 }
 
+.goup-login-home {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 13px;
+  border: 1px solid var(--goup-border);
+  border-radius: 999px;
+  background: rgba(20,20,20,0.82);
+  color: rgba(255,255,255,0.72);
+  font-size: 13px;
+  font-weight: 650;
+  text-decoration: none;
+  backdrop-filter: blur(12px);
+}
+
+.goup-login-home:hover {
+  border-color: rgba(255,139,0,0.45);
+  color: #fff;
+}
+
 .goup-login-card {
   width: 100%;
   max-width: 420px;
@@ -6119,6 +6143,13 @@ select {
   margin-top: 32px;
   display: flex;
   flex-direction: column;
+}
+
+@media (max-width: 640px) {
+  .goup-login-home {
+    top: 14px;
+    left: 14px;
+  }
 }
 
 .goup-legal-section {

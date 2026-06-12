@@ -43,9 +43,9 @@ const integrationGroups = [
     sublabel: "APIs oficiales",
     accent: "#1877F2",
     items: [
-      { name: "WhatsApp",  src: "https://cdn.simpleicons.org/whatsapp/25D366"  },
-      { name: "Instagram", src: "https://cdn.simpleicons.org/instagram/E4405F" },
-      { name: "Facebook",  src: "https://cdn.simpleicons.org/facebook/1877F2"  },
+      { name: "WhatsApp",  src: "https://cdn.jsdelivr.net/npm/simple-icons@v13/icons/whatsapp.svg",   filter: "invert(67%) sepia(43%) saturate(546%) hue-rotate(97deg) brightness(96%) contrast(91%)" },
+      { name: "Instagram", src: "https://cdn.jsdelivr.net/npm/simple-icons@v13/icons/instagram.svg",  filter: "invert(36%) sepia(82%) saturate(1107%) hue-rotate(322deg) brightness(104%) contrast(92%)" },
+      { name: "Facebook",  src: "https://cdn.jsdelivr.net/npm/simple-icons@v13/icons/facebook.svg",   filter: "invert(31%) sepia(98%) saturate(1715%) hue-rotate(208deg) brightness(101%) contrast(94%)" },
     ],
   },
   {
@@ -54,9 +54,9 @@ const integrationGroups = [
     sublabel: "Razonamiento y respuesta",
     accent: "#8E75B7",
     items: [
-      { name: "Gemini",    src: "https://cdn.simpleicons.org/googlegemini/8E75B7" },
-      { name: "Claude",    src: "https://cdn.simpleicons.org/anthropic/D4A27F"    },
-      { name: "OpenAI",    src: "https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/openai.svg", invert: true },
+      { name: "Gemini",    src: "https://cdn.jsdelivr.net/npm/simple-icons@v13/icons/googlegemini.svg", filter: "invert(53%) sepia(20%) saturate(807%) hue-rotate(240deg) brightness(87%) contrast(86%)" },
+      { name: "Claude",    src: "https://cdn.jsdelivr.net/npm/simple-icons@v13/icons/anthropic.svg",    filter: "invert(74%) sepia(23%) saturate(651%) hue-rotate(347deg) brightness(103%) contrast(83%)" },
+      { name: "OpenAI",    src: "https://cdn.jsdelivr.net/npm/simple-icons@v13/icons/openai.svg",       filter: "invert(1)" },
     ],
   },
   {
@@ -65,10 +65,10 @@ const integrationGroups = [
     sublabel: "Datos, deploy y control",
     accent: "#3FCF8E",
     items: [
-      { name: "Supabase", src: "https://cdn.simpleicons.org/supabase/3FCF8E"   },
-      { name: "Prisma",   src: "https://cdn.simpleicons.org/prisma/ffffff"     },
-      { name: "Vercel",   src: "https://cdn.simpleicons.org/vercel/ffffff"     },
-      { name: "GitHub",   src: "https://cdn.simpleicons.org/github/ffffff"     },
+      { name: "Supabase", src: "https://cdn.jsdelivr.net/npm/simple-icons@v13/icons/supabase.svg", filter: "invert(73%) sepia(47%) saturate(490%) hue-rotate(103deg) brightness(93%) contrast(88%)" },
+      { name: "Prisma",   src: "https://cdn.jsdelivr.net/npm/simple-icons@v13/icons/prisma.svg",   filter: "invert(1)" },
+      { name: "Vercel",   src: "https://cdn.jsdelivr.net/npm/simple-icons@v13/icons/vercel.svg",   filter: "invert(1)" },
+      { name: "GitHub",   src: "https://cdn.jsdelivr.net/npm/simple-icons@v13/icons/github.svg",   filter: "invert(1)" },
     ],
   },
 ];
@@ -249,7 +249,7 @@ export function LandingFeatures() {
                   <div className="goup-integration-tile" key={item.name} title={item.name}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={item.src} alt={item.name} width={28} height={28} loading="lazy"
-                      style={(item as { invert?: boolean }).invert ? { filter: "invert(1)" } : undefined} />
+                      style={(item as { filter?: string }).filter ? { filter: (item as { filter?: string }).filter } : undefined} />
                     <span>{item.name}</span>
                   </div>
                 ))}

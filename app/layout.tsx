@@ -12,9 +12,9 @@ export const metadata: Metadata = {
   title: "Goup Soluciones",
   description: "La plataforma de IA para tu negocio. Automatiza WhatsApp, Instagram y Facebook.",
   icons: {
-    icon: "/images/Poke_n_Roll.png",
-    shortcut: "/images/Poke_n_Roll.png",
-    apple: "/images/Poke_n_Roll.png"
+    icon: "/images/goup.png",
+    shortcut: "/images/goup.png",
+    apple: "/images/goup.png"
   }
 };
 
