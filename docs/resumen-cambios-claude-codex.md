@@ -974,3 +974,16 @@ Validación:
 
 - `npm audit --omit=dev`: 0 críticas, 0 altas, 2 moderadas.
 - `npm run build`: OK.
+
+## 24. Actualización 2026-06-12 — Sesión y navegación de superadministrador
+
+- El panel `/admin` muestra correo y rol de la sesión activa.
+- Se agregó `Cerrar sesión` en el panel SaaS y dentro del dashboard del local.
+- Al gestionar un local como superadministrador aparece `Locales` para volver al selector.
+- Se eliminó el CTA superior redundante de conexión Instagram.
+- `Reconectar Meta` pasó a llamarse `Renovar conexión Meta`, diferenciándolo del acceso al local.
+- `Gestionar local` sigue siendo la entrada al dashboard operativo.
+
+Validación:
+
+- `npm run build`: OK.

@@ -12,6 +12,7 @@ import {
   Settings
 } from "lucide-react";
 import { Vista } from "@/app/types";
+import { SessionActions } from "@/app/components/session-actions";
 
 type NavItem = { vista: Vista; label: string; icono: React.ElementType };
 
@@ -66,6 +67,7 @@ export function AppShell({ children, vista, onVistaChange, localNombre, localSlu
 
         <div className="topbar-right">
           <Link className="topbar-link" href="/privacidad">Privacidad</Link>
+          <SessionActions backToAdmin={rol === "super_admin"} />
         </div>
       </header>
 

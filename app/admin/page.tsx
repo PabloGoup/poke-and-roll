@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { SessionActions } from "@/app/components/session-actions";
 
 export const metadata = {
   title: "Admin — Goup Soluciones",
@@ -26,15 +27,21 @@ export default async function AdminPage() {
 
   return (
     <main className="goup-admin-page">
+      <header className="goup-admin-session">
+        <div>
+          <span>Sesión activa</span>
+          <strong>{session.user.email}</strong>
+          <small>Superadministrador</small>
+        </div>
+        <SessionActions dark />
+      </header>
+
       <section className="goup-admin-hero">
         <span>Panel SaaS</span>
         <h1>Locales Goup</h1>
         <p>
-          Gestiona conexiones Meta y accede al dashboard operativo de cada negocio.
+          Selecciona un negocio para acceder a su dashboard operativo.
         </p>
-        <Link className="goup-admin-primary" href="/onboarding/instagram">
-          + Conectar Instagram de un local
-        </Link>
       </section>
 
       <section className="goup-local-grid">
@@ -79,7 +86,7 @@ export default async function AdminPage() {
                 className="goup-local-action-secondary"
                 href={`/api/meta/connect?localId=${local.id}`}
               >
-                {local.igPageId ? "Reconectar Meta" : "Conectar Meta"}
+                {local.igPageId ? "Renovar conexión Meta" : "Conectar Meta"}
               </Link>
             </div>
           </article>
