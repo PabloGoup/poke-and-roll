@@ -62,8 +62,8 @@ export function ChannelInbox({ canal }: Props) {
   const [selected, setSelected] = useState<ConversacionView | null>(null);
   const [mobileChat, setMobileChat] = useState(false);
 
-  const cargar = useCallback(async () => {
-    setLoading(true);
+  const cargar = useCallback(async (silencioso = false) => {
+    if (!silencioso) setLoading(true);
     try {
       const url = canal ? `/api/conversaciones?canal=${canal}` : "/api/conversaciones";
       const res = await fetch(url);
@@ -72,11 +72,19 @@ export function ChannelInbox({ canal }: Props) {
     } catch {
       setConversaciones([]);
     } finally {
-      setLoading(false);
+      if (!silencioso) setLoading(false);
     }
   }, [canal]);
 
   useEffect(() => { cargar(); }, [cargar]);
+
+  // Polling cada 12s — se pausa cuando el tab no está visible
+  useEffect(() => {
+    const intervalo = setInterval(() => {
+      if (document.visibilityState === "visible") cargar(true);
+    }, 12000);
+    return () => clearInterval(intervalo);
+  }, [cargar]);
 
   const lista = (conversaciones ?? []).filter((c) => !canal || c.canal === canal);
 
@@ -105,7 +113,7 @@ export function ChannelInbox({ canal }: Props) {
           </span>
           <button
             className="wa-icon-btn"
-            onClick={cargar}
+            onClick={() => cargar()}
             aria-label="Actualizar"
             title="Actualizar"
           >

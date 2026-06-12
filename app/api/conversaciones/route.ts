@@ -24,10 +24,14 @@ export async function GET(request: Request) {
     });
 
     // IDs de cuentas propias del negocio — no deben aparecer como clientes
+    // Usa ig_page_id / fb_page_id de la DB como fuente principal (más fiable que env vars)
+    const locales = await prisma.local.findMany({ select: { igPageId: true, fbPageId: true } });
     const idsNegocio = new Set([
+      ...locales.map((l) => l.igPageId),
+      ...locales.map((l) => l.fbPageId),
       process.env.INSTAGRAM_BUSINESS_ACCOUNT_ID,
       process.env.FACEBOOK_PAGE_ID,
-    ].filter(Boolean));
+    ].filter(Boolean) as string[]);
 
     const grupos = new Map<string, typeof conversacionesRaw>();
 

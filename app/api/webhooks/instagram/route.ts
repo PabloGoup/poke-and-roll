@@ -46,11 +46,17 @@ export async function POST(request: Request) {
   const messaging = payload?.entry?.[0]?.messaging?.[0];
   const texto = messaging?.message?.text;
 
-  if (!texto) {
+  // Ignorar echos (mensajes enviados por la propia página) y mensajes sin texto
+  if (!texto || messaging?.message?.is_echo) {
     return NextResponse.json({ ok: true, ignored: true });
   }
 
   const senderId: string = messaging?.sender?.id ?? "ig_unknown";
+
+  // Ignorar si el sender es la propia página (echo sin flag explícito)
+  if (igPageId && senderId === igPageId) {
+    return NextResponse.json({ ok: true, ignored: true });
+  }
 
   // ── Generar respuesta con el agente del local ──────────────────────────────
   const decision = await generarRespuesta({
