@@ -219,6 +219,7 @@ export default function DashboardClient({ localNombre, localSlug, rol }: Dashboa
 
       {vista === "configuracion" && (
         <div className="page-stack">
+          <ReviewerGuide />
           <CommercialConfig />
 
           {/* Integrations & automation */}
@@ -313,6 +314,101 @@ function UrgentPanel({ onVistaChange }: { onVistaChange: (v: Vista) => void }) {
             <span className="urgent-badge">⚠ Urgente</span>
           </button>
         ))}
+      </div>
+    </section>
+  );
+}
+
+/* ── Guía para revisores Meta ── */
+import { BookOpen, CheckCircle, Info, MessageCircle as MsgIcon } from "lucide-react";
+
+function ReviewerGuide() {
+  return (
+    <section className="panel reviewer-guide">
+      <div className="panel-title">
+        <div>
+          <span>Para revisores</span>
+          <h2>Guía de la plataforma GoUp Social AI</h2>
+        </div>
+        <BookOpen size={20} style={{ color: "var(--muted)" }} />
+      </div>
+
+      <div className="reviewer-what">
+        <Info size={16} />
+        <div>
+          <strong>¿Qué es esta plataforma?</strong>
+          <p>
+            GoUp Social AI es un dashboard de gestión de mensajería omnicanal para restaurantes.
+            Permite a negocios conectar sus cuentas de WhatsApp, Instagram y Facebook Messenger
+            para atender a clientes con un agente de inteligencia artificial que responde consultas,
+            recomienda productos y gestiona pedidos. El negocio puede ver y revisar todas las
+            conversaciones desde este panel.
+          </p>
+        </div>
+      </div>
+
+      <div className="reviewer-steps">
+        <h3>Cómo probar la integración con Meta</h3>
+        <ol>
+          <li>
+            <CheckCircle size={15} />
+            <div>
+              <strong>Instagram DM</strong>
+              <p>Envía un mensaje directo a <code>@pizza_and_roll</code> desde cualquier cuenta de Instagram. El agente responderá automáticamente. La conversación aparecerá en la pestaña <em>Instagram</em> de este dashboard.</p>
+            </div>
+          </li>
+          <li>
+            <CheckCircle size={15} />
+            <div>
+              <strong>Facebook Messenger</strong>
+              <p>Envía un mensaje a la página de Facebook <em>Pizza and Roll</em>. El bot responderá y el hilo quedará registrado en la pestaña <em>Facebook</em>.</p>
+            </div>
+          </li>
+          <li>
+            <CheckCircle size={15} />
+            <div>
+              <strong>WhatsApp Business</strong>
+              <p>Escribe al número <code>+56 9 4099 9386</code>. El agente responde consultas de menú, delivery y pedidos.</p>
+            </div>
+          </li>
+          <li>
+            <MsgIcon size={15} />
+            <div>
+              <strong>Credenciales de acceso al dashboard</strong>
+              <p>Email: <code>revisor@goupsoluciones.cl</code> — Contraseña: <code>Revisor2025!</code></p>
+            </div>
+          </li>
+        </ol>
+      </div>
+
+      <div className="reviewer-perms">
+        <h3>Permisos de Meta utilizados</h3>
+        <div className="reviewer-perm-grid">
+          <div className="reviewer-perm-item">
+            <strong>pages_show_list</strong>
+            <span>Listar páginas accesibles para vincular el local correcto durante el onboarding OAuth.</span>
+          </div>
+          <div className="reviewer-perm-item">
+            <strong>pages_manage_metadata</strong>
+            <span>Suscribir el webhook de Messenger para recibir mensajes entrantes de la página de Facebook.</span>
+          </div>
+          <div className="reviewer-perm-item">
+            <strong>pages_messaging</strong>
+            <span>Enviar respuestas automáticas del agente vía Facebook Messenger.</span>
+          </div>
+          <div className="reviewer-perm-item">
+            <strong>instagram_business_basic</strong>
+            <span>Leer el perfil de la cuenta profesional (ID, username, foto) para mostrarla en el dashboard.</span>
+          </div>
+          <div className="reviewer-perm-item">
+            <strong>instagram_business_manage_messages</strong>
+            <span>Recibir y enviar DMs de Instagram a través del webhook oficial de la plataforma.</span>
+          </div>
+          <div className="reviewer-perm-item">
+            <strong>whatsapp_business_messaging</strong>
+            <span>Enviar y recibir mensajes de texto, imágenes y documentos vía WhatsApp Cloud API.</span>
+          </div>
+        </div>
       </div>
     </section>
   );

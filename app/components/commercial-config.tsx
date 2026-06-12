@@ -178,6 +178,9 @@ export function CommercialConfig() {
   const [uploading, setUploading] = useState(false);
   const [tipoCargaVisual, setTipoCargaVisual] = useState<ImagenCatalogo["tipo"]>("catalogo");
   const [status, setStatus] = useState<string | null>(null);
+  const [editandoReglaId, setEditandoReglaId] = useState<string | null>(null);
+  const [nuevaReglaOpen, setNuevaReglaOpen] = useState(false);
+  const [nuevaRegla, setNuevaRegla] = useState<Partial<AccionComercial>>({ prioridad: "media", canal: "todos", activa: true });
 
   const accionesActivas = useMemo(() => acciones.filter((a) => a.activa).length, [acciones]);
   const itemsActivos = useMemo(() => items.filter((item) => item.activo).length, [items]);
@@ -505,24 +508,132 @@ export function CommercialConfig() {
               <span>Acciones del agente</span>
               <h3>Prioridades de respuesta</h3>
             </div>
+            <button className="ghost-button" onClick={() => { setNuevaReglaOpen(true); setEditandoReglaId(null); }} type="button">
+              <Plus size={14} /> Nueva regla
+            </button>
           </div>
+
+          {nuevaReglaOpen && (
+            <div className="quick-edit-form" style={{ marginBottom: "12px" }}>
+              <label className="config-field">
+                <span>Titulo</span>
+                <input
+                  placeholder="Ej: Ofrecer postre al cerrar pedido"
+                  value={nuevaRegla.titulo ?? ""}
+                  onChange={(e) => setNuevaRegla((p) => ({ ...p, titulo: e.target.value }))}
+                />
+              </label>
+              <label className="config-field config-field-wide">
+                <span>Instruccion para el agente</span>
+                <input
+                  placeholder="Ej: Cuando el pedido esté casi listo, sugerir un postre antes de confirmar."
+                  value={nuevaRegla.descripcion ?? ""}
+                  onChange={(e) => setNuevaRegla((p) => ({ ...p, descripcion: e.target.value }))}
+                />
+              </label>
+              <label className="config-field">
+                <span>Prioridad</span>
+                <select value={nuevaRegla.prioridad} onChange={(e) => setNuevaRegla((p) => ({ ...p, prioridad: e.target.value as AccionComercial["prioridad"] }))}>
+                  <option value="alta">Alta</option>
+                  <option value="media">Media</option>
+                  <option value="baja">Baja</option>
+                </select>
+              </label>
+              <label className="config-field">
+                <span>Canal</span>
+                <select value={nuevaRegla.canal} onChange={(e) => setNuevaRegla((p) => ({ ...p, canal: e.target.value as AccionComercial["canal"] }))}>
+                  <option value="todos">Todos</option>
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="instagram">Instagram</option>
+                  <option value="facebook">Facebook</option>
+                </select>
+              </label>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <button className="primary-button" type="button" onClick={() => {
+                  const titulo = nuevaRegla.titulo?.trim();
+                  const descripcion = nuevaRegla.descripcion?.trim();
+                  if (!titulo || !descripcion) return;
+                  setAcciones((prev) => [...prev, {
+                    id: `custom-${Date.now()}`,
+                    titulo,
+                    descripcion,
+                    activa: true,
+                    prioridad: nuevaRegla.prioridad ?? "media",
+                    canal: nuevaRegla.canal ?? "todos",
+                    icono: Sparkles
+                  }]);
+                  setNuevaReglaOpen(false);
+                  setNuevaRegla({ prioridad: "media", canal: "todos", activa: true });
+                }}>
+                  <Plus size={14} /> Agregar
+                </button>
+                <button className="ghost-button" type="button" onClick={() => setNuevaReglaOpen(false)}>Cancelar</button>
+              </div>
+            </div>
+          )}
+
           <div className="action-grid">
             {acciones.map((accion) => {
               const Icono = accion.icono;
-              return (
-                <button
-                  className={`action-card${accion.activa ? " active" : ""}`}
-                  key={accion.id}
-                  onClick={() => toggleAccion(accion.id)}
-                  type="button"
-                >
-                  <div className="action-icon"><Icono size={16} /></div>
-                  <div>
-                    <strong>{accion.titulo}</strong>
-                    <p>{accion.descripcion}</p>
-                    <span>{accion.prioridad} · {accion.canal}</span>
+
+              if (editandoReglaId === accion.id) {
+                return (
+                  <div className="action-card active editing" key={accion.id}>
+                    <div className="action-icon"><Icono size={16} /></div>
+                    <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "6px" }}>
+                      <input
+                        className="rule-edit-input"
+                        value={accion.titulo}
+                        onChange={(e) => setAcciones((prev) => prev.map((a) => a.id === accion.id ? { ...a, titulo: e.target.value } : a))}
+                      />
+                      <textarea
+                        className="rule-edit-textarea"
+                        rows={2}
+                        value={accion.descripcion}
+                        onChange={(e) => setAcciones((prev) => prev.map((a) => a.id === accion.id ? { ...a, descripcion: e.target.value } : a))}
+                      />
+                      <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                        <select
+                          value={accion.prioridad}
+                          onChange={(e) => setAcciones((prev) => prev.map((a) => a.id === accion.id ? { ...a, prioridad: e.target.value as AccionComercial["prioridad"] } : a))}
+                        >
+                          <option value="alta">Alta</option>
+                          <option value="media">Media</option>
+                          <option value="baja">Baja</option>
+                        </select>
+                        <select
+                          value={accion.canal}
+                          onChange={(e) => setAcciones((prev) => prev.map((a) => a.id === accion.id ? { ...a, canal: e.target.value as AccionComercial["canal"] } : a))}
+                        >
+                          <option value="todos">Todos</option>
+                          <option value="whatsapp">WhatsApp</option>
+                          <option value="instagram">Instagram</option>
+                          <option value="facebook">Facebook</option>
+                        </select>
+                        <button className="primary-button" style={{ marginLeft: "auto" }} type="button" onClick={() => setEditandoReglaId(null)}>Listo</button>
+                      </div>
+                    </div>
                   </div>
-                </button>
+                );
+              }
+
+              return (
+                <div className={`action-card${accion.activa ? " active" : ""}`} key={accion.id}>
+                  <button className="action-card-toggle" onClick={() => toggleAccion(accion.id)} type="button" aria-label={`${accion.activa ? "Desactivar" : "Activar"} regla`}>
+                    <div className="action-icon"><Icono size={16} /></div>
+                    <div>
+                      <strong>{accion.titulo}</strong>
+                      <p>{accion.descripcion}</p>
+                      <span>{accion.prioridad} · {accion.canal}</span>
+                    </div>
+                  </button>
+                  <div className="action-card-controls">
+                    <button className="icon-button" type="button" title="Editar" onClick={() => setEditandoReglaId(accion.id)}><FileText size={12} /></button>
+                    {accion.id.startsWith("custom-") && (
+                      <button className="icon-button" type="button" title="Eliminar" onClick={() => setAcciones((prev) => prev.filter((a) => a.id !== accion.id))}><Trash2 size={12} /></button>
+                    )}
+                  </div>
+                </div>
               );
             })}
           </div>

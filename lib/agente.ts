@@ -714,10 +714,17 @@ export async function generarRespuesta(mensaje: MensajeEntrante): Promise<Decisi
   }
 
   try {
+    // Reglas comerciales activas (excluye catalogo-visual que se maneja en código)
+    const reglasActivasTexto = (configComercial?.reglas ?? [])
+      .filter((r) => r.activa && r.id !== "catalogo-visual")
+      .map((r) => `- [${r.prioridad}] ${r.titulo}: ${r.descripcion}`)
+      .join("\n");
+
     // Contexto del negocio como primer mensaje de sistema
     const contextMsg = [
       `Canal activo: ${mensaje.canal}. Cliente: ${mensaje.cliente}.`,
       `Catalogo visual prioritario: ${catalogoVisual ? `disponible (${catalogoVisual.tipo}: ${catalogoVisual.nombre})` : "no disponible"}`,
+      reglasActivasTexto ? `\nReglas comerciales activas (aplica estas prioridades en tus respuestas):\n${reglasActivasTexto}` : "",
       "",
       "Contexto de catalogo disponible:",
       serializarContextoNegocio(contexto),
