@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { generarRespuesta } from "@/lib/agente";
 import { enviarInstagramImagenConToken, enviarInstagramTextoConToken, verificarWebhook } from "@/lib/meta";
-import { guardarDecision, guardarMensaje, obtenerOCrearConversacion, upsertCliente } from "@/lib/db-helpers";
+import { guardarDecision, guardarMensaje, obtenerOCrearConversacion, resolverNombreMetaCliente, upsertCliente } from "@/lib/db-helpers";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: Request) {
@@ -67,6 +67,10 @@ export async function POST(request: Request) {
       canalId: senderId,
       localId: local?.id
     });
+
+    if (!cliente.nombre && igToken) {
+      resolverNombreMetaCliente({ clienteId: cliente.id, userId: senderId, token: igToken, canal: "instagram" });
+    }
 
     const conversacion = await obtenerOCrearConversacion({
       clienteId: cliente.id,

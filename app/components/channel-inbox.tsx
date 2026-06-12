@@ -16,13 +16,20 @@ const labelEstado: Record<string, string> = {
 };
 
 /* ── Convert ConversacionDB → ConversacionView ── */
+function formatearNombre(c: ConversacionDB["cliente"], canal: Canal): string {
+  if (c.nombre) return c.nombre;
+  if (canal === "whatsapp" && c.whatsappId) {
+    const n = c.whatsappId.replace(/\D/g, "");
+    if (n.startsWith("56") && n.length === 11) return `+56 ${n.slice(2, 3)} ${n.slice(3, 7)} ${n.slice(7)}`;
+    return `+${n}`;
+  }
+  if (canal === "instagram" && c.instagramId) return `IG ${c.instagramId.slice(-6)}`;
+  if (canal === "facebook" && c.facebookId) return `FB ${c.facebookId.slice(-6)}`;
+  return "Cliente";
+}
+
 function dbToView(c: ConversacionDB): ConversacionView {
-  const nombre =
-    c.cliente.nombre ??
-    c.cliente.whatsappId ??
-    c.cliente.instagramId ??
-    c.cliente.facebookId ??
-    "Cliente";
+  const nombre = formatearNombre(c.cliente, c.canal);
   return {
     id: c.id,
     nombre,
@@ -37,7 +44,7 @@ function dbToView(c: ConversacionDB): ConversacionView {
     mensajes: c.mensajes.map((m, i) => ({
       id: `${c.id}-${i}`,
       texto: m.texto,
-      direccion: m.direccion === "salida" ? "salida" : "entrada",
+      direccion: m.direccion === "saliente" ? "salida" : "entrada",
       hora: new Date(m.creadoEn).toLocaleTimeString("es-CL", {
         hour: "2-digit",
         minute: "2-digit",

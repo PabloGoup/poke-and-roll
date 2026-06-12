@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { generarRespuesta } from "@/lib/agente";
 import { enviarFacebookTexto, verificarWebhook } from "@/lib/meta";
-import { guardarDecision, guardarMensaje, obtenerOCrearConversacion, upsertCliente } from "@/lib/db-helpers";
+import { guardarDecision, guardarMensaje, obtenerOCrearConversacion, resolverNombreMetaCliente, upsertCliente } from "@/lib/db-helpers";
 import { prisma } from "@/lib/prisma";
 
 async function getFbTokenParaPagina(pageId: string): Promise<string | undefined> {
@@ -60,6 +60,10 @@ export async function POST(request: Request) {
       canal: "facebook",
       canalId: senderId
     });
+
+    if (!cliente.nombre && fbToken) {
+      resolverNombreMetaCliente({ clienteId: cliente.id, userId: senderId, token: fbToken, canal: "facebook" });
+    }
 
     const conversacion = await obtenerOCrearConversacion({
       clienteId: cliente.id,

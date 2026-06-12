@@ -118,6 +118,32 @@ export async function guardarDecision(params: {
   });
 }
 
+// ─── Resolución de nombres para clientes de Instagram/Facebook ────────────
+
+export async function resolverNombreMetaCliente(params: {
+  clienteId: string;
+  userId: string;
+  token: string;
+  canal: "instagram" | "facebook";
+}): Promise<void> {
+  try {
+    const version = process.env.META_GRAPH_VERSION ?? "v20.0";
+    const fields = params.canal === "instagram" ? "name,username" : "name";
+    const url = new URL(`https://graph.facebook.com/${version}/${params.userId}`);
+    url.searchParams.set("fields", fields);
+    url.searchParams.set("access_token", params.token);
+    const resp = await fetch(url, { cache: "no-store" });
+    if (!resp.ok) return;
+    const data = await resp.json().catch(() => null);
+    const nombre = data?.username ? `@${data.username}` : data?.name ?? null;
+    if (nombre) {
+      await prisma.cliente.update({ where: { id: params.clienteId }, data: { nombre } });
+    }
+  } catch {
+    // no bloquear el flujo principal si falla la resolución
+  }
+}
+
 // ─── Helpers SesionPedido ──────────────────────────────────────────────────
 
 export async function obtenerSesionPedido(conversacionId: string) {

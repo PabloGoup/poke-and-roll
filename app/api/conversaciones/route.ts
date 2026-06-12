@@ -23,14 +23,19 @@ export async function GET(request: Request) {
       take: limite * 8
     });
 
+    // IDs de cuentas propias del negocio — no deben aparecer como clientes
+    const idsNegocio = new Set([
+      process.env.INSTAGRAM_BUSINESS_ACCOUNT_ID,
+      process.env.FACEBOOK_PAGE_ID,
+    ].filter(Boolean));
+
     const grupos = new Map<string, typeof conversacionesRaw>();
 
     for (const conversacion of conversacionesRaw) {
-      const key = [
-        conversacion.localId ?? "sin-local",
-        conversacion.canal,
-        conversacion.clienteId
-      ].join(":");
+      const igId = conversacion.cliente.instagramId;
+      const fbId = conversacion.cliente.facebookId;
+      if ((igId && idsNegocio.has(igId)) || (fbId && idsNegocio.has(fbId))) continue;
+      const key = [conversacion.canal, conversacion.clienteId].join(":");
       const grupo = grupos.get(key) ?? [];
       grupo.push(conversacion);
       grupos.set(key, grupo);
