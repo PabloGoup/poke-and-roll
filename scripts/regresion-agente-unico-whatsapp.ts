@@ -1,4 +1,4 @@
-import { procesarWhatsAppAgenteUnico } from '../lib/whatsapp/agente-unico-atencion';
+import { procesarWhatsAppAgenteUnico, resolverPasoConversacional } from '../lib/whatsapp/agente-unico-atencion';
 import type { ItemCarritoWA, MensajeDespacho, SesionPedidoCtx } from '../lib/modulos/types';
 import { detectarItemPedidoDeterministico, detectarModificacion } from '../lib/modulos/intenciones-pedido';
 
@@ -137,6 +137,52 @@ async function run() {
       assert: (r: Awaited<ReturnType<typeof procesarWhatsAppAgenteUnico>>) => /nombre/i.test(r.respuesta) && r.moduloSiguiente === 'FORMAS_PAGO',
     },
     {
+      nombre: 'nombre y transferencia juntos piden confirmacion final',
+      mensaje: msg('de Pablo y pago con transferencia'),
+      sesion: {
+        ...sesionBase([itemPromo30()]),
+        modalidad: 'despacho' as const,
+        direccion: {
+          street: 'manuel rengifo 5808',
+          district: 'huechuraba',
+          costoCalculado: 2000,
+          tiempoEstimadoMin: 30,
+        },
+        costoDespacho: 2000,
+        estadoConversacional: { fase: 'pago' as const },
+      },
+      resolver: (mensaje: MensajeDespacho, sesion: SesionPedidoCtx | null) =>
+        resolverPasoConversacional(mensaje, sesion, { simulacion: true }),
+      assert: (r: Awaited<ReturnType<typeof procesarWhatsAppAgenteUnico>>) =>
+        /antes de crear el pedido|confirmas que avanzamos/i.test(r.respuesta) &&
+        r.actualizarSesion?.metodoPago === 'transferencia' &&
+        r.actualizarSesion?.nombreCliente === 'Pablo' &&
+        r.actualizarSesion?.estadoConversacional?.fase === 'confirmacion_final',
+    },
+    {
+      nombre: 'confirmacion final clara crea orden en simulacion',
+      mensaje: msg('confirmo'),
+      sesion: {
+        ...sesionBase([itemPromo30()]),
+        modalidad: 'despacho' as const,
+        direccion: {
+          street: 'manuel rengifo 5808',
+          district: 'huechuraba',
+          costoCalculado: 2000,
+          tiempoEstimadoMin: 30,
+        },
+        costoDespacho: 2000,
+        metodoPago: 'transferencia' as const,
+        nombreCliente: 'Pablo',
+        estadoConversacional: { fase: 'confirmacion_final' as const },
+      },
+      resolver: (mensaje: MensajeDespacho, sesion: SesionPedidoCtx | null) =>
+        resolverPasoConversacional(mensaje, sesion, { simulacion: true }),
+      assert: (r: Awaited<ReturnType<typeof procesarWhatsAppAgenteUnico>>) =>
+        /Pedido listo para registrar/i.test(r.respuesta) &&
+        r.actualizarSesion?.estadoConversacional?.fase === 'orden_creada',
+    },
+    {
       nombre: 'modificacion doble aplica a item activo',
       mensaje: msg('El kanikama y el camarón por pollo'),
       sesion: sesionBase([itemPromo30()]),
@@ -183,7 +229,8 @@ async function run() {
   ];
 
   for (const caso of casos) {
-    const respuesta = await procesarWhatsAppAgenteUnico(caso.mensaje, caso.sesion);
+    const resolver = 'resolver' in caso && caso.resolver ? caso.resolver : procesarWhatsAppAgenteUnico;
+    const respuesta = await resolver(caso.mensaje, caso.sesion);
     if (!caso.assert(respuesta)) {
       console.error(`[FAIL] ${caso.nombre}`, respuesta);
       process.exitCode = 1;

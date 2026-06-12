@@ -863,3 +863,60 @@ La decisión arquitectónica es no volver a usarlo como cerebro principal de Wha
 ### 19.3 Validación
 
 - `npm run build`: OK.
+
+## 20. Actualización 2026-06-11 — Corrección fase de pago nombre + transferencia
+
+### 20.1 Problema detectado
+
+En laboratorio, después de calcular delivery y preguntar nombre + pago, el mensaje "de Pablo y pago con transferencia" no extraía correctamente el nombre. El sistema guardaba o entendía parcialmente el pago, preguntaba de nuevo el nombre y luego el fallback conversacional respondía sin actualizar sesión. Eso podía terminar en "ya hice el pedido" → "no tenemos productos anotados".
+
+### 20.2 Cambios implementados
+
+- `lib/whatsapp/agente-unico-atencion.ts`
+  - `extraerNombreCliente()` ahora limpia conectores como "de", "y", "con", "pago con", "pagar con".
+  - `de Pablo y pago con transferencia` se interpreta como nombre `Pablo` y método `transferencia`.
+  - Si la sesión está en fase de pago o ya tiene modalidad, no puede caer a fallback genérico de consulta/pedido.
+
+- `scripts/regresion-agente-unico-whatsapp.ts`
+  - Agrega regresión para nombre + transferencia en el mismo mensaje usando modo simulación.
+
+### 20.3 Validación
+
+- `npx tsx scripts/regresion-agente-unico-whatsapp.ts`: OK.
+- `npm run build`: OK.
+
+## 21. Actualización 2026-06-11 — Reglas rescatadas de guía operativa
+
+### 21.1 Reglas relevantes rescatadas
+
+- No crear orden sin confirmación explícita final.
+- Mostrar total final con productos, despacho, modalidad, nombre y pago antes de crear pedido.
+- Mantener respuestas cortas: confirmar entendido, informar condición/precio y pedir solo el siguiente dato.
+- Mantener modificaciones como observación para cocina.
+- Escalar reclamos, alergias, problemas de pago, cancelaciones avanzadas y fuera de cobertura.
+
+### 21.2 Cambios implementados
+
+- `lib/modulos/types.ts`
+  - Agrega fase conversacional `confirmacion_final`.
+
+- `lib/whatsapp/agente-unico-atencion.ts`
+  - Cuando ya existen productos, modalidad, dirección si aplica, nombre y pago, el agente ya no crea la orden inmediatamente.
+  - Primero muestra resumen final y pregunta: "¿Confirmas que avanzamos con este pedido?"
+  - Solo una confirmación clara crea la orden.
+  - Si la respuesta final es ambigua, vuelve a pedir confirmación explícita.
+
+- `scripts/regresion-agente-unico-whatsapp.ts`
+  - Actualiza regresión de nombre + transferencia para exigir confirmación final.
+  - Agrega regresión donde `confirmo` crea la orden en modo simulación.
+
+### 21.3 Pendientes recomendados
+
+- Validación real de pago por transferencia cuando el cliente envía comprobante.
+- Validación de stock/cocina antes de prometer preparación.
+- Eventos de cocina/despacho para mensajes automáticos de "pedido listo" sin inventar "va en camino".
+
+### 21.4 Validación
+
+- `npx tsx scripts/regresion-agente-unico-whatsapp.ts`: OK.
+- `npm run build`: OK.

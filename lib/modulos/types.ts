@@ -79,7 +79,7 @@ export interface SesionPedidoCtx {
 }
 
 export interface EstadoConversacionalWA {
-  fase?: 'inicio' | 'consulta' | 'pedido' | 'confirmacion_carrito' | 'entrega' | 'direccion' | 'pago' | 'orden_creada' | 'humano';
+  fase?: 'inicio' | 'consulta' | 'pedido' | 'confirmacion_carrito' | 'entrega' | 'direccion' | 'pago' | 'confirmacion_final' | 'orden_creada' | 'humano';
   productoEnFoco?: string;
   modificacionPendiente?: {
     origen: string;

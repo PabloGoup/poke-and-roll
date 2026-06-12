@@ -149,6 +149,12 @@ function esAfirmacion(texto: string) {
   return /^(si|sí|sii|siii|sip|sipo|yapo|yapo|ya po|dale|ok|oka|okay|correcto|confirmo|confirmado|exacto|por favor|si por favor|sí por favor|ya|listo)$/.test(n);
 }
 
+function esConfirmacionFinalClara(texto: string) {
+  const n = normalizarTexto(texto).replace(/[^\w\s]/g, '').trim();
+  return /^(si|sí|sii|siii|sip|sipo|confirmo|confirmado|lo quiero|dejalo|déjalo|vamos|proceda|si por favor|sí por favor|ok confirmado|dale confirmado)$/.test(n)
+    || /\b(confirmo el pedido|esta correcto|está correcto|avancemos con el pedido)\b/.test(n);
+}
+
 function esNegacionSimple(texto: string) {
   const n = normalizarTexto(texto).replace(/[^\w\s]/g, '').trim();
   return /^(no|nop|no gracias)$/.test(n);
@@ -522,8 +528,9 @@ async function resolverEntregaODireccion(msg: MensajeDespacho, sesion: SesionPed
 function extraerNombreCliente(texto: string, metodoPago: string | null): string | null {
   const limpio = texto
     .replace(/[,.;]/g, ' ')
+    .replace(/\b(pago con|pagar con|pago en|pagar en|con pago|lo pago con)\b/gi, ' ')
     .replace(/\b(transferencia|transferir|transfiero|tarjeta|debito|débito|credito|crédito|efectivo|cash|mixto|parte y parte)\b/gi, ' ')
-    .replace(/\b(a nombre de|nombre|soy|me llamo|queda para|para)\b/gi, ' ')
+    .replace(/\b(a nombre de|a nombre|nombre|soy|me llamo|queda para|queda a nombre de|queda a nombre|para|de|con|y)\b/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -544,7 +551,7 @@ async function resolverPagoYCrearOrden(
 
   const metodoDetectado = detectarMetodoPago(msg.texto);
   const metodoPago = metodoDetectado ?? sesion.metodoPago ?? null;
-  const nombreDetectado = extraerNombreCliente(msg.texto, metodoDetectado);
+  const nombreDetectado = extraerNombreCliente(msg.texto, metodoPago);
   const nombreCliente = nombreDetectado ?? sesion.nombreCliente ?? null;
   const telefonoCliente = msg.telefonoCliente ?? sesion.telefonoCliente;
 
@@ -572,6 +579,40 @@ async function resolverPagoYCrearOrden(
     nombreCliente,
     telefonoCliente,
   });
+
+  if (estadoBase(sesion).fase !== 'confirmacion_final') {
+    return {
+      respuesta: `Perfecto, antes de crear el pedido confirma que está todo correcto:\n${construirResumenPedido(sesionCompleta)}\nNombre: ${nombreCliente}\nPago: ${metodoPago}\n\n¿Confirmas que avanzamos con este pedido?`,
+      moduloSiguiente: 'CONFIRMACION',
+      moduloEjecutado: 'CONFIRMACION',
+      actualizarSesion: {
+        metodoPago,
+        nombreCliente,
+        telefonoCliente,
+        estadoConversacional: actualizarEstado(sesion, {
+          fase: 'confirmacion_final',
+          ultimaPreguntaUtil: '¿Confirmas que avanzamos con este pedido?',
+        }),
+      },
+    };
+  }
+
+  if (!esConfirmacionFinalClara(msg.texto)) {
+    return {
+      respuesta: 'Para dejarlo registrado correctamente, ¿me confirmas que avanzamos con este pedido?',
+      moduloSiguiente: 'CONFIRMACION',
+      moduloEjecutado: 'CONFIRMACION',
+      actualizarSesion: {
+        metodoPago,
+        nombreCliente,
+        telefonoCliente,
+        estadoConversacional: actualizarEstado(sesion, {
+          fase: 'confirmacion_final',
+          ultimaPreguntaUtil: '¿Confirmas que avanzamos con este pedido?',
+        }),
+      },
+    };
+  }
 
   if (simulacion) {
     return {
@@ -855,6 +896,11 @@ export async function resolverPasoConversacional(
       return pedirEntrega(sesion);
     }
 
+    if (estado.fase === 'confirmacion_final') {
+      const pago = await resolverPagoYCrearOrden(msg, sesion, contexto.simulacion);
+      if (pago) return pago;
+    }
+
     if (reclamaModalidadNoDefinida(texto)) {
       return pedirEntrega(sesion);
     }
@@ -872,6 +918,22 @@ export async function resolverPasoConversacional(
 
     const pago = await resolverPagoYCrearOrden(msg, sesion, contexto.simulacion);
     if (pago && (estado.fase === 'pago' || sesion.modalidad)) return pago;
+
+    if (estado.fase === 'pago' || sesion.modalidad) {
+      return {
+        respuesta: sesion.metodoPago
+          ? 'Perfecto. ¿A nombre de quién dejamos el pedido?'
+          : '¿Cómo deseas pagar? Aceptamos efectivo, tarjeta o transferencia. También necesito el nombre para registrar el pedido.',
+        moduloSiguiente: 'FORMAS_PAGO',
+        moduloEjecutado: 'FORMAS_PAGO',
+        actualizarSesion: {
+          estadoConversacional: actualizarEstado(sesion, {
+            fase: 'pago',
+            ultimaPreguntaUtil: '¿Cómo deseas pagar y a nombre de quién queda?',
+          }),
+        },
+      };
+    }
 
     if (esCierreDePedido(texto) || esNegacionSimple(texto)) {
       return cerrarCarrito(sesion);
