@@ -38,6 +38,7 @@ export default function DashboardClient({ localNombre, localSlug, rol }: Dashboa
   const [decision, setDecision] = useState<DecisionResponse | null>(null);
   const [historialLab, setHistorialLab] = useState<MensajeLaboratorio[]>([]);
   const [testingAgent, setTestingAgent] = useState(false);
+  const [crearOrdenReal, setCrearOrdenReal] = useState(false);
   const [alertResult, setAlertResult] = useState<string | null>(null);
 
   const integraciones = useMemo(() => {
@@ -96,6 +97,7 @@ export default function DashboardClient({ localNombre, localSlug, rol }: Dashboa
           canal,
           cliente,
           texto: textoLimpio,
+          crearOrdenReal,
           historial: historialPrevio.map((m) => ({ rol: m.rol, texto: m.texto }))
         })
       });
@@ -200,8 +202,10 @@ export default function DashboardClient({ localNombre, localSlug, rol }: Dashboa
             decision={decision}
             historial={historialLab}
             loading={testingAgent}
+            crearOrdenReal={crearOrdenReal}
             onCanalChange={setCanal}
             onClienteChange={setCliente}
+            onCrearOrdenRealChange={setCrearOrdenReal}
             onConfigCatalogo={() => setVista("configuracion")}
             onSubmit={probarAgente}
             onTextoChange={setTexto}

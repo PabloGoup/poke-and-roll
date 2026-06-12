@@ -45,6 +45,7 @@ async function generarRespuestaWhatsAppLaboratorio(data: {
   cliente: string;
   texto: string;
   localId?: string;
+  crearOrdenReal?: boolean;
   historial?: Array<{ rol: "cliente" | "agente"; texto: string }>;
 }) {
   const conversacionId = `lab-${data.cliente.toLowerCase().replace(/\s+/g, "-") || "cliente"}`;
@@ -79,7 +80,10 @@ async function generarRespuestaWhatsAppLaboratorio(data: {
     localId,
     historial
   };
-  const respuesta = await resolverPasoConversacional(msgActual, sesion, { historial, simulacion: true });
+  const respuesta = await resolverPasoConversacional(msgActual, sesion, {
+    historial,
+    simulacion: !data.crearOrdenReal
+  });
 
   return {
     agente: respuesta.moduloEjecutado ?? "Agente Unico WhatsApp",
@@ -103,7 +107,10 @@ export async function POST(request: Request) {
   }
 
   const decision = parsed.data.canal === "whatsapp"
-    ? await generarRespuestaWhatsAppLaboratorio(parsed.data)
+    ? await generarRespuestaWhatsAppLaboratorio({
+        ...parsed.data,
+        crearOrdenReal: body?.crearOrdenReal === true
+      })
     : await generarRespuesta(parsed.data);
 
   return NextResponse.json({

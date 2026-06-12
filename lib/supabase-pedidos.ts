@@ -235,7 +235,10 @@ export async function crearOrdenWhatsApp(sesion: SesionPedidoCtx): Promise<Resul
   }
 
   const cashierId = process.env.WHATSAPP_BOT_CASHIER_ID;
-  const subtotal = sesion.items.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
+  const subtotal = sesion.items.reduce((totalItems, item) => {
+    const recargos = item.modifiers.reduce((total, modificador) => total + modificador.priceDelta, 0);
+    return totalItems + (item.unitPrice + recargos) * item.quantity;
+  }, 0);
   const total = subtotal + (sesion.costoDespacho ?? 0);
 
   // La RPC recibe un único parámetro `payload jsonb` que contiene cart y checkout

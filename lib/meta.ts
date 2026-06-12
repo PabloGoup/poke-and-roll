@@ -178,8 +178,9 @@ export async function enviarInstagramImagenConToken(params: {
 export async function enviarFacebookTexto(params: {
   recipientId: string;
   texto: string;
+  fbToken?: string;
 }) {
-  const pageAccessToken = process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
+  const pageAccessToken = params.fbToken ?? process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
 
   if (!pageAccessToken) {
     return { ok: false, modo: "simulado", detalle: "Falta FACEBOOK_PAGE_ACCESS_TOKEN" };

@@ -10,8 +10,10 @@ type Props = {
   decision: DecisionResponse | null;
   historial: MensajeLaboratorio[];
   loading: boolean;
+  crearOrdenReal: boolean;
   onCanalChange: (canal: Canal) => void;
   onClienteChange: (value: string) => void;
+  onCrearOrdenRealChange: (value: boolean) => void;
   onTextoChange: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onClearHistorial: () => void;
@@ -38,8 +40,10 @@ export function AgentLab({
   decision,
   historial,
   loading,
+  crearOrdenReal,
   onCanalChange,
   onClienteChange,
+  onCrearOrdenRealChange,
   onTextoChange,
   onSubmit,
   onClearHistorial,
@@ -94,6 +98,22 @@ export function AgentLab({
               value={cliente}
             />
           </label>
+
+          {canal === "whatsapp" && (
+            <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+              <input
+                checked={crearOrdenReal}
+                onChange={(event) => onCrearOrdenRealChange(event.target.checked)}
+                type="checkbox"
+              />
+              <span>
+                Crear orden real en POS
+                <small style={{ display: "block", color: "var(--muted)", marginTop: 2 }}>
+                  Solo se ejecuta después de la confirmación final.
+                </small>
+              </span>
+            </label>
+          )}
 
           <div>
             <label style={{ fontSize: 13, fontWeight: 500, color: "var(--text-2)", display: "block", marginBottom: 6 }}>

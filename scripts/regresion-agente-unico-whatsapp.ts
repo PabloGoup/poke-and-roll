@@ -180,6 +180,8 @@ async function run() {
         resolverPasoConversacional(mensaje, sesion, { simulacion: true }),
       assert: (r: Awaited<ReturnType<typeof procesarWhatsAppAgenteUnico>>) =>
         /Pedido listo para registrar/i.test(r.respuesta) &&
+        /Pablo/i.test(r.respuesta) &&
+        !/nombre de Si\b/i.test(r.respuesta) &&
         r.actualizarSesion?.estadoConversacional?.fase === 'orden_creada',
     },
     {

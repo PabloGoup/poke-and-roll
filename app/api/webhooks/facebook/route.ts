@@ -4,6 +4,12 @@ import { enviarFacebookTexto, verificarWebhook } from "@/lib/meta";
 import { guardarDecision, guardarMensaje, obtenerOCrearConversacion, upsertCliente } from "@/lib/db-helpers";
 import { prisma } from "@/lib/prisma";
 
+async function getFbTokenParaPagina(pageId: string): Promise<string | undefined> {
+  if (!pageId) return undefined;
+  const local = await prisma.local.findFirst({ where: { fbPageId: pageId }, select: { fbToken: true } });
+  return local?.fbToken ?? undefined;
+}
+
 export async function GET(request: Request) {
   const challenge = verificarWebhook(new URL(request.url).searchParams);
 
@@ -40,6 +46,8 @@ export async function POST(request: Request) {
   }
 
   const senderId: string = messaging?.sender?.id ?? "fb_unknown";
+  const pageId: string = payload?.entry?.[0]?.id ?? "";
+  const fbToken = await getFbTokenParaPagina(pageId);
 
   const decision = await generarRespuesta({
     canal: "facebook",
@@ -77,7 +85,7 @@ export async function POST(request: Request) {
       requiereHumano: decision.requiereHumano
     });
 
-    const envio = await enviarFacebookTexto({ recipientId: senderId, texto: decision.respuesta });
+    const envio = await enviarFacebookTexto({ recipientId: senderId, texto: decision.respuesta, fbToken });
 
     if (envio.ok) {
       await guardarMensaje({
@@ -88,7 +96,7 @@ export async function POST(request: Request) {
       });
     }
   } catch {
-    await enviarFacebookTexto({ recipientId: senderId, texto: decision.respuesta });
+    await enviarFacebookTexto({ recipientId: senderId, texto: decision.respuesta, fbToken });
   }
 
   return NextResponse.json({ ok: true, canal: "facebook", decision });

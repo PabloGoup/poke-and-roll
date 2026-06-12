@@ -920,3 +920,39 @@ En laboratorio, después de calcular delivery y preguntar nombre + pago, el mens
 
 - `npx tsx scripts/regresion-agente-unico-whatsapp.ts`: OK.
 - `npm run build`: OK.
+
+## 22. Actualización 2026-06-11 — Confirmación final y órdenes POS desde laboratorio
+
+### 22.1 Problemas detectados
+
+- En fase `confirmacion_final`, el mensaje "sí" se procesaba otra vez como posible nombre y podía reemplazar `Pablo` por `Si`.
+- El laboratorio siempre ejecutaba el agente en modo simulación, por lo que nunca llamaba al RPC real del POS.
+- El desglose de pago enviado al POS calculaba subtotal sin sumar modificadores/recargos.
+
+### 22.2 Cambios implementados
+
+- `lib/whatsapp/agente-unico-atencion.ts`
+  - En confirmación final conserva nombre y pago ya registrados.
+  - "sí" solo confirma; no vuelve a ejecutarse como extracción de datos.
+
+- `app/components/agent-lab.tsx`
+  - Agrega control `Crear orden real en POS`.
+  - Está desactivado por defecto para evitar pedidos accidentales.
+
+- `app/dashboard-client.tsx`
+  - Envía el modo seleccionado al endpoint del laboratorio.
+
+- `app/api/agente/procesar-mensaje/route.ts`
+  - El replay del historial siempre permanece simulado.
+  - Solo el mensaje actual de confirmación puede crear una orden real cuando el control está activo.
+
+- `lib/supabase-pedidos.ts`
+  - El subtotal para el POS ahora suma recargos de modificadores.
+
+- `scripts/regresion-agente-unico-whatsapp.ts`
+  - Verifica que la confirmación final conserve el nombre `Pablo`.
+
+### 22.3 Validación
+
+- `npx tsx scripts/regresion-agente-unico-whatsapp.ts`: OK.
+- `npm run build`: OK.

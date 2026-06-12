@@ -549,9 +549,10 @@ async function resolverPagoYCrearOrden(
   if (!sesion.modalidad) return null;
   if (sesion.modalidad === 'despacho' && !sesion.direccion) return null;
 
-  const metodoDetectado = detectarMetodoPago(msg.texto);
+  const enConfirmacionFinal = estadoBase(sesion).fase === 'confirmacion_final';
+  const metodoDetectado = enConfirmacionFinal ? null : detectarMetodoPago(msg.texto);
   const metodoPago = metodoDetectado ?? sesion.metodoPago ?? null;
-  const nombreDetectado = extraerNombreCliente(msg.texto, metodoPago);
+  const nombreDetectado = enConfirmacionFinal ? null : extraerNombreCliente(msg.texto, metodoPago);
   const nombreCliente = nombreDetectado ?? sesion.nombreCliente ?? null;
   const telefonoCliente = msg.telefonoCliente ?? sesion.telefonoCliente;
 
@@ -580,7 +581,7 @@ async function resolverPagoYCrearOrden(
     telefonoCliente,
   });
 
-  if (estadoBase(sesion).fase !== 'confirmacion_final') {
+  if (!enConfirmacionFinal) {
     return {
       respuesta: `Perfecto, antes de crear el pedido confirma que está todo correcto:\n${construirResumenPedido(sesionCompleta)}\nNombre: ${nombreCliente}\nPago: ${metodoPago}\n\n¿Confirmas que avanzamos con este pedido?`,
       moduloSiguiente: 'CONFIRMACION',
