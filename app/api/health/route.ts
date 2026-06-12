@@ -44,7 +44,7 @@ export async function GET() {
       facebook:
         estaConfigurada("FACEBOOK_PAGE_ID") &&
         estaConfigurada("FACEBOOK_PAGE_ACCESS_TOKEN"),
-      n8n: estaConfigurada("N8N_WEBHOOK_ALERTAS_URL")
+      alertas: estaConfigurada("ALERT_PHONE_NUMBER")
     }
   });
 }

@@ -5,7 +5,6 @@ import {
   CalendarDays,
   CheckCircle2,
   Clock3,
-  Flame,
   Instagram,
   MessageCircle,
   ShieldCheck,
@@ -302,12 +301,6 @@ export const integracionesDemo = [
     estado: "contenido",
     detalle: "DMs, historias, publicaciones y carruseles.",
     icono: Instagram
-  },
-  {
-    nombre: "n8n",
-    estado: "alertas",
-    detalle: "Deriva reclamos y resumen diario al equipo.",
-    icono: Flame
   },
   {
     nombre: "OpenAI",

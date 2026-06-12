@@ -5,7 +5,6 @@ import Image from "next/image";
 import {
   AlertTriangle,
   BadgeCheck,
-  BellRing,
   Database,
   Facebook,
   Instagram,
@@ -38,8 +37,6 @@ export default function DashboardClient({ localNombre, localSlug, rol }: Dashboa
   const [historialLab, setHistorialLab] = useState<MensajeLaboratorio[]>([]);
   const [testingAgent, setTestingAgent] = useState(false);
   const [crearOrdenReal, setCrearOrdenReal] = useState(false);
-  const [alertResult, setAlertResult] = useState<string | null>(null);
-
   const integraciones = useMemo(() => {
     const d = health?.integraciones;
     return [
@@ -49,7 +46,7 @@ export default function DashboardClient({ localNombre, localSlug, rol }: Dashboa
       { nombre: "Instagram", activo: Boolean(d?.instagram), detalle: d?.instagram ? "Business ID listo" : "Falta INSTAGRAM_BUSINESS_ACCOUNT_ID", icono: Instagram },
       { nombre: "WhatsApp", activo: Boolean(d?.whatsapp), detalle: d?.whatsapp ? "API lista" : "Faltan credenciales WA", icono: MessageCircle },
       { nombre: "Facebook", activo: Boolean(d?.facebook), detalle: d?.facebook ? "Page token listo" : "Falta FACEBOOK_PAGE_ACCESS_TOKEN", icono: Facebook },
-      { nombre: "n8n", activo: Boolean(d?.n8n), detalle: d?.n8n ? "Webhook listo" : "Modo simulado", icono: BellRing }
+      { nombre: "Alertas WA", activo: Boolean(d?.alertas), detalle: d?.alertas ? "Número configurado" : "Falta ALERT_PHONE_NUMBER", icono: MessageCircle }
     ];
   }, [health]);
 
@@ -117,17 +114,6 @@ export default function DashboardClient({ localNombre, localSlug, rol }: Dashboa
     } finally {
       setTestingAgent(false);
     }
-  }
-
-  async function enviarAlerta() {
-    setAlertResult("Enviando alerta...");
-    const res = await fetch("/api/alertas/enviar", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tipo: "prueba_operativa", cliente, mensaje: texto })
-    });
-    const data = await res.json();
-    setAlertResult(data.modo === "simulado" ? "Alerta simulada OK" : "Alerta enviada");
   }
 
   useEffect(() => { cargarHealth(); }, []);
@@ -228,10 +214,7 @@ export default function DashboardClient({ localNombre, localSlug, rol }: Dashboa
             <div className="status-content">
               <IntegrationStatus integraciones={integraciones} loading={healthLoading} onRefresh={cargarHealth} />
               <SecurityPanel />
-              {alertResult && <div className="status-banner">{alertResult}</div>}
-              <button className="ghost-button" onClick={enviarAlerta} style={{ width: "100%", justifyContent: "center" }} type="button">
-                <BellRing size={14} /> Probar alerta n8n
-              </button>
+
             </div>
           </details>
         </div>

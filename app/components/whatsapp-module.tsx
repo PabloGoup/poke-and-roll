@@ -77,7 +77,7 @@ export function WhatsAppModule({ integracion }: Props) {
           <div className="flow-arrow" />
           <div className="flow-step">
             <span>4</span>
-            <p>Si es reclamo, se activa alerta vía n8n al equipo de atención</p>
+            <p>Si es reclamo, se envía alerta vía WhatsApp al equipo de atención</p>
           </div>
         </div>
       </div>

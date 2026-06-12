@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { enviarWhatsAppMedia, enviarWhatsAppTexto, verificarFirmaWebhookMeta, verificarWebhook } from "@/lib/meta";
+import { enviarAlertaOperativa } from "@/lib/alertas";
 import {
   guardarMensaje,
   obtenerOCrearConversacion,
@@ -307,6 +308,8 @@ export async function POST(request: Request) {
     }
   }
 
+  const yaEsperabaHumano = conversacion.estado === EstadoConversacion.esperando_humano;
+
   // Actualizar conversación (requiereHumano / estado)
   await prisma.conversacion.update({
     where: { id: conversacion.id },
@@ -317,6 +320,17 @@ export async function POST(request: Request) {
         : EstadoConversacion.activa,
     },
   });
+
+  if (requiereHumano && !yaEsperabaHumano) {
+    const nombre = cliente.nombre ?? nombreCliente ?? telefono;
+    enviarAlertaOperativa({
+      canal: "WhatsApp",
+      nombreCliente: nombre,
+      ultimoMensaje: texto,
+      waToken: local?.waToken ?? undefined,
+      waPhoneId: local?.waPhoneId ?? undefined,
+    }).catch(() => null);
+  }
 
   if (requiereHumano || pareceReclamo(texto)) {
     await prisma.reclamo.create({

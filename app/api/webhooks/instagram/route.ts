@@ -3,6 +3,7 @@ import { generarRespuesta } from "@/lib/agente";
 import { enviarInstagramImagenConToken, enviarInstagramTextoConToken, verificarFirmaWebhookMeta, verificarWebhook } from "@/lib/meta";
 import { guardarDecision, guardarMensaje, obtenerOCrearConversacion, resolverNombreMetaCliente, upsertCliente } from "@/lib/db-helpers";
 import { prisma } from "@/lib/prisma";
+import { enviarAlertaOperativa } from "@/lib/alertas";
 
 export async function GET(request: Request) {
   const challenge = verificarWebhook(new URL(request.url).searchParams);
@@ -100,6 +101,8 @@ export async function POST(request: Request) {
       payloadMeta: messaging
     });
 
+    const yaEsperabaHumano = conversacion.estado === "esperando_humano";
+
     await guardarDecision({
       conversacionId: conversacion.id,
       agente: decision.agente,
@@ -109,6 +112,14 @@ export async function POST(request: Request) {
       decisionSeguridad: decision.decisionSeguridad,
       requiereHumano: decision.requiereHumano
     });
+
+    if (decision.requiereHumano && !yaEsperabaHumano) {
+      enviarAlertaOperativa({
+        canal: "Instagram",
+        nombreCliente: cliente.nombre ?? `@${senderId}`,
+        ultimoMensaje: texto,
+      }).catch(() => null);
+    }
 
     const envio = await enviarInstagramTextoConToken({
       recipientId: senderId,
