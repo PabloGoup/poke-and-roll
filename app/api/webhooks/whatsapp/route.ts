@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { enviarWhatsAppMedia, enviarWhatsAppTexto, verificarWebhook } from "@/lib/meta";
+import { enviarWhatsAppMedia, enviarWhatsAppTexto, verificarFirmaWebhookMeta, verificarWebhook } from "@/lib/meta";
 import {
   guardarMensaje,
   obtenerOCrearConversacion,
@@ -123,7 +123,16 @@ export async function GET(request: Request) {
 // ─── POST — recepción de mensajes WhatsApp ────────────────────────────────
 
 export async function POST(request: Request) {
-  const payload = await request.json().catch(() => null) as WhatsAppWebhookPayload | null;
+  const rawBody = await request.text().catch(() => "");
+  if (!verificarFirmaWebhookMeta(rawBody, request.headers.get("x-hub-signature-256"))) {
+    return NextResponse.json({ ok: false, error: "Firma inválida" }, { status: 403 });
+  }
+  const payload = rawBody
+    ? await Promise.resolve().then(() => JSON.parse(rawBody) as WhatsAppWebhookPayload).catch(() => null)
+    : null;
+  if (!payload) {
+    return NextResponse.json({ ok: false, error: "Payload inválido" }, { status: 400 });
+  }
 
   // Log del evento Meta (no bloqueante)
   try {
@@ -154,6 +163,9 @@ export async function POST(request: Request) {
   const local = phoneNumberId
     ? await prisma.local.findUnique({ where: { waPhoneId: phoneNumberId } })
     : null;
+  if (!local) {
+    return NextResponse.json({ ok: true, ignored: true, reason: "unknown-whatsapp-number" });
+  }
   const localId = local?.id;
 
   // Upsert cliente y conversación

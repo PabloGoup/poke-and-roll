@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { requireApiUser } from "@/lib/api-security";
 
 const alertaSchema = z.object({
   tipo: z.string().min(1),
@@ -9,6 +10,9 @@ const alertaSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const { response: authResponse } = await requireApiUser();
+  if (authResponse) return authResponse;
+
   const body = await request.json().catch(() => null);
   const parsed = alertaSchema.safeParse(body);
 

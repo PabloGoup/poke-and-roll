@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireApiUser } from "@/lib/api-security";
 
 function estaConfigurada(nombre: string) {
   return Boolean(process.env[nombre]?.trim());
 }
 
 export async function GET() {
+  const { response } = await requireApiUser();
+  if (response) return response;
+
   let baseDatos = {
     configurada: estaConfigurada("DATABASE_URL"),
     conectada: false,
@@ -16,10 +20,10 @@ export async function GET() {
     try {
       await prisma.$queryRawUnsafe("select 1 as ok");
       baseDatos = { ...baseDatos, conectada: true };
-    } catch (error) {
+    } catch {
       baseDatos = {
         ...baseDatos,
-        error: error instanceof Error ? error.message : "Error desconocido"
+        error: "No se pudo conectar a la base de datos"
       };
     }
   }

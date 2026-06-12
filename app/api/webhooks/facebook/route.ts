@@ -1,14 +1,8 @@
 import { NextResponse } from "next/server";
 import { generarRespuesta } from "@/lib/agente";
-import { enviarFacebookTexto, verificarWebhook } from "@/lib/meta";
+import { enviarFacebookTexto, verificarFirmaWebhookMeta, verificarWebhook } from "@/lib/meta";
 import { guardarDecision, guardarMensaje, obtenerOCrearConversacion, resolverNombreMetaCliente, upsertCliente } from "@/lib/db-helpers";
 import { prisma } from "@/lib/prisma";
-
-async function getFbTokenParaPagina(pageId: string): Promise<string | undefined> {
-  if (!pageId) return undefined;
-  const local = await prisma.local.findFirst({ where: { fbPageId: pageId }, select: { fbToken: true } });
-  return local?.fbToken ?? undefined;
-}
 
 export async function GET(request: Request) {
   const challenge = verificarWebhook(new URL(request.url).searchParams);
@@ -20,7 +14,14 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const payload = await request.json().catch(() => null);
+  const rawBody = await request.text().catch(() => "");
+  if (!verificarFirmaWebhookMeta(rawBody, request.headers.get("x-hub-signature-256"))) {
+    return NextResponse.json({ ok: false, error: "Firma inválida" }, { status: 403 });
+  }
+  const payload = rawBody ? await Promise.resolve().then(() => JSON.parse(rawBody)).catch(() => null) : null;
+  if (!payload) {
+    return NextResponse.json({ ok: false, error: "Payload inválido" }, { status: 400 });
+  }
 
   if (payload?.object !== "page") {
     return NextResponse.json({ ok: true, ignored: true });
@@ -47,18 +48,27 @@ export async function POST(request: Request) {
 
   const senderId: string = messaging?.sender?.id ?? "fb_unknown";
   const pageId: string = payload?.entry?.[0]?.id ?? "";
-  const fbToken = await getFbTokenParaPagina(pageId);
+  const local = pageId
+    ? await prisma.local.findFirst({ where: { fbPageId: pageId } })
+    : null;
+  const fbToken = local?.fbToken ?? undefined;
+
+  if (!local || !fbToken) {
+    return NextResponse.json({ ok: true, ignored: true, reason: "unknown-facebook-page" });
+  }
 
   const decision = await generarRespuesta({
     canal: "facebook",
     cliente: senderId,
-    texto
+    texto,
+    localId: local.id
   });
 
   try {
     const cliente = await upsertCliente({
       canal: "facebook",
-      canalId: senderId
+      canalId: senderId,
+      localId: local.id
     });
 
     if (!cliente.nombre && fbToken) {
@@ -67,7 +77,8 @@ export async function POST(request: Request) {
 
     const conversacion = await obtenerOCrearConversacion({
       clienteId: cliente.id,
-      canal: "facebook"
+      canal: "facebook",
+      localId: local.id
     });
 
     await guardarMensaje({

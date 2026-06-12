@@ -8,17 +8,25 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+function passwordInicial(nombre: string) {
+  const value = process.env[nombre]?.trim();
+  if (!value || value.length < 14) {
+    throw new Error(`${nombre} debe estar configurada y tener al menos 14 caracteres`);
+  }
+  return value;
+}
+
 const usuarios = [
   {
     email:   "admin@goup.cl",
-    password: "goup2024",
+    passwordEnv: "SEED_SUPER_ADMIN_PASSWORD",
     nombre:  "Admin Goup",
     rol:     "super_admin" as const,
     localSlug: null,
   },
   {
     email:    "admin@pokeyroll.cl",
-    password: "poke2024",
+    passwordEnv: "SEED_LOCAL_ADMIN_PASSWORD",
     nombre:   "Admin Poke & Roll",
     rol:      "admin_local" as const,
     localSlug: "poke-and-roll",
@@ -27,7 +35,7 @@ const usuarios = [
 
 async function main() {
   for (const u of usuarios) {
-    const passwordHash = await hash(u.password, 12);
+    const passwordHash = await hash(passwordInicial(u.passwordEnv), 12);
 
     const local = u.localSlug
       ? await prisma.local.findUnique({ where: { slug: u.localSlug } })

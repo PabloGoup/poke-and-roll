@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { enviarWhatsAppTexto } from '@/lib/meta';
 import type { DireccionCliente, ItemCarritoWA, SesionPedidoCtx, WebhookPedidoListoPayload } from '@/lib/modulos/types';
 import { Prisma } from '@prisma/client';
+import { secretMatches } from '@/lib/api-security';
 
 type SesionPedidoConLocal = Prisma.SesionPedidoGetPayload<{
   include: {
@@ -34,7 +35,7 @@ function mapearSesionACtx(sesion: SesionPedidoConLocal): SesionPedidoCtx {
 
 export async function POST(req: NextRequest) {
   const secret = req.headers.get('x-webhook-secret');
-  if (secret !== process.env.SUPABASE_PEDIDOS_WEBHOOK_SECRET) {
+  if (!secretMatches(secret, process.env.SUPABASE_PEDIDOS_WEBHOOK_SECRET)) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

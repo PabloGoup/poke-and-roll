@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { generarRespuesta } from "@/lib/agente";
-import { enviarInstagramImagenConToken, enviarInstagramTextoConToken, verificarWebhook } from "@/lib/meta";
+import { enviarInstagramImagenConToken, enviarInstagramTextoConToken, verificarFirmaWebhookMeta, verificarWebhook } from "@/lib/meta";
 import { guardarDecision, guardarMensaje, obtenerOCrearConversacion, resolverNombreMetaCliente, upsertCliente } from "@/lib/db-helpers";
 import { prisma } from "@/lib/prisma";
 
@@ -13,7 +13,14 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const payload = await request.json().catch(() => null);
+  const rawBody = await request.text().catch(() => "");
+  if (!verificarFirmaWebhookMeta(rawBody, request.headers.get("x-hub-signature-256"))) {
+    return NextResponse.json({ ok: false, error: "Firma inválida" }, { status: 403 });
+  }
+  const payload = rawBody ? await Promise.resolve().then(() => JSON.parse(rawBody)).catch(() => null) : null;
+  if (!payload) {
+    return NextResponse.json({ ok: false, error: "Payload inválido" }, { status: 400 });
+  }
 
   // ── Identificar a qué local pertenece este evento ──────────────────────────
   const igPageId: string | undefined = payload?.entry?.[0]?.id;
@@ -23,11 +30,10 @@ export async function POST(request: Request) {
     ? await prisma.local.findUnique({ where: { igPageId } })
     : null;
 
-  // Fallback: si no hay local configurado aún, usar token de entorno
-  const igToken = local?.fbToken ?? local?.igToken ?? process.env.META_ACCESS_TOKEN ?? null;
+  const igToken = local?.fbToken ?? local?.igToken ?? null;
 
-  if (!igToken) {
-    return NextResponse.json({ ok: false, error: "Local no encontrado o sin token IG" }, { status: 400 });
+  if (!local || !igToken) {
+    return NextResponse.json({ ok: true, ignored: true, reason: "unknown-instagram-account" });
   }
 
   // ── Log del evento raw ─────────────────────────────────────────────────────

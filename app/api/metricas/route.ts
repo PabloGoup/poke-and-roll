@@ -1,20 +1,38 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/auth";
 
 export async function GET() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ ok: false, error: "No autorizado" }, { status: 401 });
+  }
   try {
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
+    const alcanceLocal = session.user.rol === "super_admin"
+      ? {}
+      : { localId: session.user.localId ?? "__sin_local__" };
 
     const [totalHoy, ventasHoy, casosHumano, contenidoPendiente, porCanal] = await Promise.all([
-      prisma.conversacion.count({ where: { creadoEn: { gte: hoy } } }),
-      prisma.decisionAgente.count({ where: { intencion: "venta", creadoEn: { gte: hoy } } }),
-      prisma.conversacion.count({ where: { requiereHumano: true, estado: "esperando_humano" } }),
+      prisma.conversacion.count({ where: { ...alcanceLocal, creadoEn: { gte: hoy } } }),
+      prisma.decisionAgente.count({
+        where: {
+          intencion: "venta",
+          creadoEn: { gte: hoy },
+          ...(session.user.rol === "super_admin"
+            ? {}
+            : { conversacion: { localId: session.user.localId ?? "__sin_local__" } })
+        }
+      }),
+      prisma.conversacion.count({
+        where: { ...alcanceLocal, requiereHumano: true, estado: "esperando_humano" }
+      }),
       prisma.contenido.count({ where: { estado: { in: ["programado", "aprobado"] } } }),
       prisma.conversacion.groupBy({
         by: ["canal"],
         _count: { canal: true },
-        where: { creadoEn: { gte: hoy } }
+        where: { ...alcanceLocal, creadoEn: { gte: hoy } }
       })
     ]);
 

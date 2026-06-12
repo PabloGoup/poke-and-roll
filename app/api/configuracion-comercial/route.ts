@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { obtenerConfiguracionComercial } from "@/lib/configuracion-comercial";
+import { auth } from "@/auth";
 
 const reglaSchema = z.object({
   id: z.string().min(1),
@@ -38,11 +39,19 @@ const configSchema = z.object({
 });
 
 export async function GET() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ ok: false, error: "No autorizado" }, { status: 401 });
+  }
   const config = await obtenerConfiguracionComercial();
   return NextResponse.json({ ok: true, config });
 }
 
 export async function PUT(request: Request) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ ok: false, error: "No autorizado" }, { status: 401 });
+  }
   const body = await request.json().catch(() => null);
   const parsed = configSchema.safeParse(body);
 

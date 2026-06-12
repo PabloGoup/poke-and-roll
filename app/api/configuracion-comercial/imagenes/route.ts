@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { prisma } from "@/lib/prisma";
+import { requireApiUser } from "@/lib/api-security";
 
 function supabaseConfig() {
   const url = process.env.SUPABASE_VENTAS_URL?.replace(/\/$/, "");
@@ -117,6 +118,9 @@ async function subirSupabase(file: File, config: { url: string; key: string; buc
 
 // POST: recibe el archivo comprimido y lo sube a Supabase
 export async function POST(request: Request) {
+  const { response } = await requireApiUser();
+  if (response) return response;
+
   const config = supabaseConfig();
   const contentType = request.headers.get("content-type") ?? "";
 
@@ -125,6 +129,15 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => null);
     if (body?.publicUrl && body?.storagePath) {
       const { publicUrl, storagePath, nombre, tipo, prioridadEnvio } = body;
+      let parsedUrl: URL;
+      try {
+        parsedUrl = new URL(publicUrl);
+      } catch {
+        return NextResponse.json({ ok: false, error: "URL inválida" }, { status: 400 });
+      }
+      if (parsedUrl.protocol !== "https:") {
+        return NextResponse.json({ ok: false, error: "Solo se permiten URLs HTTPS" }, { status: 400 });
+      }
       if (prioridadEnvio) await prisma.$executeRawUnsafe('UPDATE "catalogos_visuales_agente" SET "prioridad_envio" = false');
       const imagen = await prisma.catalogoVisualAgente.create({
         data: {
@@ -154,6 +167,9 @@ export async function POST(request: Request) {
   if (!["image/png", "image/jpeg", "image/webp", "application/pdf"].includes(file.type)) {
     return NextResponse.json({ ok: false, error: "Formato no permitido" }, { status: 400 });
   }
+  if (file.size > 10 * 1024 * 1024) {
+    return NextResponse.json({ ok: false, error: "El archivo supera el máximo de 10 MB" }, { status: 413 });
+  }
 
   let uploaded: { publicUrl: string; storagePath: string };
   let storageProvider: "supabase" | "local" = "local";
@@ -169,8 +185,7 @@ export async function POST(request: Request) {
       return NextResponse.json({
         ok: false,
         error: "No se pudo subir a Supabase Storage",
-        detail: detalle,
-        hint: "Revisa que SUPABASE_VENTAS_URL apunte al proyecto correcto, que SUPABASE_VENTAS_STORAGE_BUCKET exista y que SUPABASE_VENTAS_SERVICE_ROLE_KEY sea service_role, no publishable/anon."
+        detail: "Error de almacenamiento. Revisa la configuración del servidor."
       }, { status: 502 });
     }
     console.error("[Catalogo upload] Supabase no configurado, usando local:", err);

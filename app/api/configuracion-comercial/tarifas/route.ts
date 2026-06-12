@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { geocodificarDireccion } from "@/lib/geocodificacion";
 import { guardarTarifasDespacho, obtenerConfiguracionComercial } from "@/lib/configuracion-comercial";
+import { requireApiUser } from "@/lib/api-security";
 
 const tarifaSchema = z.object({
   id: z.string().optional(),
@@ -26,6 +27,9 @@ const bodySchema = z.object({
 });
 
 export async function GET() {
+  const { response } = await requireApiUser();
+  if (response) return response;
+
   try {
     const config = await obtenerConfiguracionComercial();
     const tarifas = config.tarifas.map((t) => ({
@@ -46,6 +50,9 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
+  const { response } = await requireApiUser();
+  if (response) return response;
+
   try {
     const body = await request.json().catch(() => null);
     const parsed = bodySchema.safeParse(body);

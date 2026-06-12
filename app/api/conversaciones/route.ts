@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import { Canal } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/auth";
 
 export async function GET(request: Request) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ ok: false, error: "No autorizado" }, { status: 401 });
+  }
   const { searchParams } = new URL(request.url);
   const canalParam = searchParams.get("canal");
   const limite = Math.min(parseInt(searchParams.get("limite") ?? "30"), 50);
@@ -10,10 +15,15 @@ export async function GET(request: Request) {
   const canalValido = canalParam && Object.values(Canal).includes(canalParam as Canal)
     ? (canalParam as Canal)
     : undefined;
+  const localId = session.user.localId;
+  const where = {
+    ...(canalValido ? { canal: canalValido } : {}),
+    ...(session.user.rol !== "super_admin" ? { localId: localId ?? "__sin_local__" } : {})
+  };
 
   try {
     const conversacionesRaw = await prisma.conversacion.findMany({
-      where: canalValido ? { canal: canalValido } : undefined,
+      where,
       include: {
         cliente: { select: { id: true, nombre: true, whatsappId: true, instagramId: true, facebookId: true } },
         mensajes: { orderBy: { creadoEn: "desc" }, take: 80 },
@@ -25,7 +35,10 @@ export async function GET(request: Request) {
 
     // IDs de cuentas propias del negocio — no deben aparecer como clientes
     // Usa ig_page_id / fb_page_id de la DB como fuente principal (más fiable que env vars)
-    const locales = await prisma.local.findMany({ select: { igPageId: true, fbPageId: true } });
+    const locales = await prisma.local.findMany({
+      where: session.user.rol === "super_admin" ? undefined : { id: localId ?? "__sin_local__" },
+      select: { igPageId: true, fbPageId: true }
+    });
     const idsNegocio = new Set([
       ...locales.map((l) => l.igPageId),
       ...locales.map((l) => l.fbPageId),

@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import crypto from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 
@@ -58,18 +59,37 @@ export async function requireLocalContext(request: NextRequest): Promise<MetaLoc
 }
 
 export function encodeMetaState(context: MetaLocalContext) {
-  return Buffer.from(
-    JSON.stringify({
-      localId: context.localId,
-      localSlug: context.localSlug,
-      ts: Date.now()
-    })
-  ).toString("base64url");
+  const payload = Buffer.from(JSON.stringify({
+    localId: context.localId,
+    localSlug: context.localSlug,
+    ts: Date.now()
+  })).toString("base64url");
+  const signature = crypto
+    .createHmac("sha256", getMetaStateSecret())
+    .update(payload)
+    .digest("base64url");
+  return `${payload}.${signature}`;
 }
 
 export function decodeMetaState(state: string | null): MetaLocalContext {
   if (!state) throw new Error("Falta state de Meta");
-  const parsed = JSON.parse(Buffer.from(state, "base64url").toString("utf8")) as {
+  const [payload, signature] = state.split(".");
+  if (!payload || !signature) throw new Error("State de Meta invalido");
+
+  const expected = crypto
+    .createHmac("sha256", getMetaStateSecret())
+    .update(payload)
+    .digest("base64url");
+  const signatureBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expected);
+  if (
+    signatureBuffer.length !== expectedBuffer.length
+    || !crypto.timingSafeEqual(signatureBuffer, expectedBuffer)
+  ) {
+    throw new Error("Firma de state Meta invalida");
+  }
+
+  const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as {
     localId?: string;
     localSlug?: string;
     ts?: number;
@@ -85,6 +105,12 @@ export function decodeMetaState(state: string | null): MetaLocalContext {
   }
 
   return { localId: parsed.localId, localSlug: parsed.localSlug };
+}
+
+function getMetaStateSecret() {
+  const secret = process.env.META_APP_SECRET?.trim() || process.env.AUTH_SECRET?.trim();
+  if (!secret) throw new Error("Falta secreto para firmar OAuth Meta");
+  return secret;
 }
 
 export function getMetaScopes() {

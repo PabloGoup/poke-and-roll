@@ -956,3 +956,21 @@ En laboratorio, después de calcular delivery y preguntar nombre + pago, el mens
 
 - `npx tsx scripts/regresion-agente-unico-whatsapp.ts`: OK.
 - `npm run build`: OK.
+
+## 23. Actualización 2026-06-12 — Auditoría y endurecimiento de seguridad
+
+- Se protegieron endpoints administrativos con autenticación.
+- Se aisló conversaciones, métricas, laboratorio y resolución de nombres por local.
+- Se firmó el OAuth state de Meta y se eliminó el verify token predeterminado.
+- Los webhooks Meta rechazan firmas/payloads inválidos e ignoran cuentas desconocidas.
+- Se protegieron callbacks internos con secretos.
+- Se eliminaron contraseñas seed conocidas.
+- Se limitó y validó la carga de archivos.
+- Se eliminó la dependencia vulnerable `go`.
+- Se agregaron cabeceras HTTP defensivas.
+- Informe completo: `docs/auditoria-seguridad-2026-06-12.md`.
+
+Validación:
+
+- `npm audit --omit=dev`: 0 críticas, 0 altas, 2 moderadas.
+- `npm run build`: OK.

@@ -1,13 +1,31 @@
+import crypto from "crypto";
 import { getVerifyToken } from "@/lib/env";
 
 const GRAPH_URL = "https://graph.facebook.com/v20.0";
+
+export function verificarFirmaWebhookMeta(rawBody: string, signature: string | null): boolean {
+  const secret = process.env.META_APP_SECRET?.trim();
+  if (!secret || !signature) return false;
+  const expected = `sha256=${crypto.createHmac("sha256", secret).update(rawBody, "utf8").digest("hex")}`;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+  } catch {
+    return false;
+  }
+}
 
 export function verificarWebhook(searchParams: URLSearchParams) {
   const mode = searchParams.get("hub.mode");
   const token = searchParams.get("hub.verify_token");
   const challenge = searchParams.get("hub.challenge");
+  let verifyToken: string;
+  try {
+    verifyToken = getVerifyToken();
+  } catch {
+    return null;
+  }
 
-  if (mode === "subscribe" && token === getVerifyToken() && challenge) {
+  if (mode === "subscribe" && token === verifyToken && challenge) {
     return challenge;
   }
   return null;
