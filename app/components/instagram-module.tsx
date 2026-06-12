@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CalendarDays, Instagram, Link2, MessageSquare, PlugZap, ShieldCheck, Unplug, Webhook } from "lucide-react";
+import { Instagram, Link2, MessageSquare, PlugZap, ShieldCheck, Unplug, Webhook } from "lucide-react";
 import { ChannelInbox } from "@/app/components/channel-inbox";
-import { ContentCalendar } from "@/app/components/content-calendar";
 import { IntegracionEstado } from "@/app/types";
 
 type Props = {
@@ -175,16 +174,7 @@ export function InstagramModule({ integracion }: Props) {
         </div>
       </div>
 
-      <div className="two-column">
-        <ChannelInbox canal="instagram" />
-        <div>
-          <div className="module-section-label">
-            <CalendarDays size={16} />
-            <span>Contenido programado</span>
-          </div>
-          <ContentCalendar />
-        </div>
-      </div>
+      <ChannelInbox canal="instagram" />
     </div>
   );
 }

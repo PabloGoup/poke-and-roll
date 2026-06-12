@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Facebook, Instagram, RefreshCw, Search } from "lucide-react";
 import { Canal, ConversacionDB } from "@/app/types";
-import { conversacionesDemo, threadsDemo } from "@/lib/demo-data";
 import { ChatView, ConversacionView } from "./chat-view";
 
 type Props = { canal?: Canal };
@@ -53,35 +52,6 @@ function dbToView(c: ConversacionDB): ConversacionView {
   };
 }
 
-/* ── Convert demo item → ConversacionView ── */
-let demoCounter = 0;
-function demoToView(item: (typeof conversacionesDemo)[0]): ConversacionView {
-  const id = `demo-${demoCounter++}`;
-  const thread = threadsDemo[item.cliente] ?? [
-    { texto: item.mensaje, direccion: "entrada" as const, hora: item.hora },
-    { texto: item.respuesta, direccion: "salida" as const, hora: item.hora },
-  ];
-  return {
-    id,
-    nombre: item.cliente,
-    canal: item.canal.toLowerCase() as Canal,
-    estado: item.estado,
-    requiereHumano: item.prioridad === "alta",
-    hora: item.hora,
-    intencion: item.intencion,
-    mensajes: thread.map((m, i) => ({
-      id: `${id}-${i}`,
-      texto: m.texto,
-      direccion: m.direccion,
-      hora: m.hora,
-      fecha: m.fecha,
-    })),
-    noLeidos: item.prioridad === "alta" ? 3 : item.prioridad === "media" ? 1 : 0,
-  };
-}
-
-const demoViews = conversacionesDemo.map(demoToView);
-
 /* ─────────────────────────────────────────────── */
 
 export function ChannelInbox({ canal }: Props) {
@@ -100,7 +70,7 @@ export function ChannelInbox({ canal }: Props) {
       const data = await res.json();
       if (data.ok) setConversaciones(data.conversaciones.map(dbToView));
     } catch {
-      // usa demo si falla
+      setConversaciones([]);
     } finally {
       setLoading(false);
     }
@@ -108,10 +78,7 @@ export function ChannelInbox({ canal }: Props) {
 
   useEffect(() => { cargar(); }, [cargar]);
 
-  // Usar demo si la API falló O si no hay datos reales aún
-  const usandoDemo = conversaciones === null || conversaciones.length === 0;
-  const rawLista = usandoDemo ? demoViews : conversaciones!;
-  const lista = rawLista.filter((c) => !canal || c.canal === canal);
+  const lista = (conversaciones ?? []).filter((c) => !canal || c.canal === canal);
 
   const filtradas = lista.filter((c) => {
     if (filtro === "humano" && !c.requiereHumano) return false;
@@ -170,7 +137,6 @@ export function ChannelInbox({ canal }: Props) {
               {f === "todas" ? "Todos" : f === "activas" ? "Activas" : "🚨 Humano"}
             </button>
           ))}
-          {usandoDemo && <span className="demo-badge">demo</span>}
         </div>
 
         {/* Conversation list */}

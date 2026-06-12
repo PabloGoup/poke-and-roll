@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import { AgentLab } from "@/app/components/agent-lab";
 import { AppShell } from "@/app/components/app-shell";
-import { ContentCalendar } from "@/app/components/content-calendar";
 import { ChannelInbox } from "@/app/components/channel-inbox";
 import { CommercialConfig } from "@/app/components/commercial-config";
 import { IntegrationStatus } from "@/app/components/integration-status";
@@ -222,9 +221,6 @@ export default function DashboardClient({ localNombre, localSlug, rol }: Dashboa
         <div className="page-stack">
           <CommercialConfig />
 
-          {/* Content planning — posts, stories, carousels */}
-          <ContentCalendar />
-
           {/* Integrations & automation */}
           <details className="status-section" open>
             <summary className="status-toggle">Automatización e integraciones</summary>
@@ -244,15 +240,48 @@ export default function DashboardClient({ localNombre, localSlug, rol }: Dashboa
 }
 
 /* ── Urgent conversations panel ── */
-import { conversacionesDemo } from "@/lib/demo-data";
+type ConvUrgente = {
+  id: string;
+  nombre: string;
+  canal: string;
+  hora: string;
+  ultimoMensaje: string;
+};
 
 function UrgentPanel({ onVistaChange }: { onVistaChange: (v: Vista) => void }) {
-  const urgentes = conversacionesDemo.filter((c) => c.prioridad === "alta");
-  if (urgentes.length === 0) return null;
+  const [urgentes, setUrgentes] = useState<ConvUrgente[]>([]);
 
-  const canalMap: Record<string, "whatsapp" | "instagram" | "facebook"> = {
-    WhatsApp: "whatsapp", Instagram: "instagram", Facebook: "facebook",
-  };
+  useEffect(() => {
+    fetch("/api/conversaciones?limite=50")
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data.ok) return;
+        const lista: ConvUrgente[] = data.conversaciones
+          .filter((c: { requiereHumano: boolean }) => c.requiereHumano)
+          .map((c: {
+            id: string;
+            canal: string;
+            actualizadoEn: string;
+            cliente: { nombre?: string | null; whatsappId?: string | null; instagramId?: string | null; facebookId?: string | null };
+            mensajes: { texto: string }[];
+          }) => {
+            const cl = c.cliente;
+            const nombre = cl.nombre ?? cl.whatsappId ?? cl.instagramId ?? cl.facebookId ?? "Cliente";
+            const ultimoMensaje = c.mensajes.length > 0 ? c.mensajes[c.mensajes.length - 1].texto : "";
+            return {
+              id: c.id,
+              nombre,
+              canal: c.canal,
+              hora: new Date(c.actualizadoEn).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }),
+              ultimoMensaje,
+            };
+          });
+        setUrgentes(lista);
+      })
+      .catch(() => {});
+  }, []);
+
+  if (urgentes.length === 0) return null;
 
   return (
     <section className="panel urgent-panel">
@@ -266,20 +295,20 @@ function UrgentPanel({ onVistaChange }: { onVistaChange: (v: Vista) => void }) {
       <div className="urgent-list">
         {urgentes.map((c) => (
           <button
-            key={`${c.cliente}-${c.hora}`}
+            key={c.id}
             className="urgent-item"
-            onClick={() => onVistaChange(canalMap[c.canal] ?? "whatsapp")}
+            onClick={() => onVistaChange(c.canal as Vista)}
             type="button"
           >
             <div className="urgent-avatar">
-              {c.cliente.replace("@", "").slice(0, 2).toUpperCase()}
+              {c.nombre.replace("@", "").slice(0, 2).toUpperCase()}
             </div>
             <div className="urgent-body">
               <div className="urgent-top">
-                <span className="urgent-name">{c.cliente}</span>
+                <span className="urgent-name">{c.nombre}</span>
                 <span className="urgent-canal">{c.canal} · {c.hora}</span>
               </div>
-              <p className="urgent-msg">{c.mensaje}</p>
+              <p className="urgent-msg">{c.ultimoMensaje}</p>
             </div>
             <span className="urgent-badge">⚠ Urgente</span>
           </button>
