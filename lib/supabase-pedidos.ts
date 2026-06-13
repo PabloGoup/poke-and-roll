@@ -42,6 +42,8 @@ function getSupabase(): SupabaseClient {
   // supabase-js ignoran el transport y leen globalThis.WebSocket directamente.
   if (typeof globalThis.WebSocket === 'undefined') {
     try {
+      // Polyfill sincrónico solo en runtime Node < 22; require es intencional.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       (globalThis as Record<string, unknown>).WebSocket = require('ws');
     } catch {
       // ws no disponible — las llamadas REST/RPC igual funcionan
