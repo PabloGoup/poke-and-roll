@@ -89,6 +89,8 @@ export interface EstadoConversacionalWA {
   } | null;
   ultimaPreguntaUtil?: string;
   intencionVisualAtendida?: string | null;
+  estimatedReadyAt?: string | null;
+  webHandoffToken?: string | null;
   aclaracionPendiente?: {
     tipo: 'producto' | 'modificacion' | 'entrega' | 'pago';
     valor?: string;

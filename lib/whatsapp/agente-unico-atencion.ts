@@ -8,7 +8,13 @@ import {
 import { REGLAS_COMERCIALES, TONO_Y_ESTILO } from '@/lib/modulos/contexto-comercial';
 import { formatearReglasAnexasWhatsApp, obtenerConfiguracionComercial } from '@/lib/configuracion-comercial';
 import { formatearTarifasDespachoAgente, resolverCoberturaDespacho } from '@/lib/zonas-despacho';
-import { crearOrdenWhatsApp, consultarEstadoOrden, resolverItemsCarrito } from '@/lib/supabase-pedidos';
+import {
+  crearOrdenWhatsApp,
+  completarHandoffWeb,
+  consultarEstadoOrden,
+  obtenerCatalogoProductos,
+  resolverItemsCarrito,
+} from '@/lib/supabase-pedidos';
 import type {
   DireccionCliente,
   EstadoConversacionalWA,
@@ -42,7 +48,40 @@ type ContextoAgenteUnico = {
 
 type EstadoFase = NonNullable<EstadoConversacionalWA['fase']>;
 
+type WebCartPayload = {
+  v: number;
+  h?: string;
+  i: Array<{
+    p: string;
+    n: string;
+    c: string;
+    q: number;
+    u: number;
+    no?: string;
+    vi?: string;
+    vn?: string;
+    m?: Array<{ i?: string; n: string; d: number }>;
+  }>;
+  x: {
+    t: 'retiro_local' | 'despacho';
+    pm: 'efectivo' | 'tarjeta' | 'transferencia';
+    cn: string;
+    cp: string;
+    al?: string;
+    as?: string;
+    ad?: string;
+    ar?: string;
+    no?: string;
+    df?: number;
+  };
+};
+
 const ESTADOS_ORDEN: Record<string, string> = {
+  pendiente: 'en cola',
+  en_preparacion: 'en preparación',
+  listo: 'listo',
+  entregado: 'entregado',
+  cancelado: 'cancelado',
   pending: 'pendiente',
   confirmed: 'confirmado',
   preparing: 'en preparación',
@@ -51,6 +90,146 @@ const ESTADOS_ORDEN: Record<string, string> = {
   delivered: 'entregado',
   cancelled: 'cancelado',
 };
+
+function formatearHoraEta(eta?: string | null) {
+  if (!eta) return null;
+  const fecha = new Date(eta);
+  if (Number.isNaN(fecha.getTime())) return null;
+  return fecha.toLocaleTimeString('es-CL', {
+    timeZone: 'America/Santiago',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function decodeWebCartPayload(texto: string): WebCartPayload | null {
+  const match = texto.match(/\[PR_WEB_CART_V1:([A-Za-z0-9_-]+)\]/);
+  if (!match) return null;
+
+  try {
+    const base64 = match[1].replaceAll('-', '+').replaceAll('_', '/');
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
+    const parsed = JSON.parse(Buffer.from(padded, 'base64').toString('utf8')) as WebCartPayload;
+    if (parsed.v !== 1 || !Array.isArray(parsed.i) || parsed.i.length === 0 || !parsed.x) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+async function receiveWebCart(
+  msg: MensajeDespacho,
+  currentSession: SesionPedidoCtx | null,
+): Promise<RespuestaModulo | null> {
+  const payload = decodeWebCartPayload(msg.texto);
+  if (!payload) return null;
+
+  const catalog = await obtenerCatalogoProductos();
+  const productsById = new Map(catalog.map((product) => [product.productId, product]));
+  const items = payload.i.flatMap((incoming) => {
+    const product = productsById.get(incoming.p);
+    if (!product || product.status !== 'activo') return [];
+
+    const variant = incoming.vi
+      ? product.variants.find((entry) => entry.id === incoming.vi)
+      : undefined;
+    const availableModifiers = new Map(
+      product.modifierGroups.flatMap((group) => group.modifiers).map((modifier) => [modifier.id, modifier]),
+    );
+    const isUuid = (value?: string) =>
+      Boolean(value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value));
+    const manualModifiers = (incoming.m ?? [])
+      .filter((modifier) => !isUuid(modifier.i))
+      .map((modifier) => ({
+        id: modifier.i,
+        name: modifier.n,
+        priceDelta: Math.max(modifier.d, 0),
+      }));
+    const manualModifierNotes = manualModifiers
+      .map((modifier) =>
+        `${modifier.name}${modifier.priceDelta > 0 ? ` (+$${modifier.priceDelta.toLocaleString('es-CL')})` : ''}`,
+      );
+    const modifiers = (incoming.m ?? []).flatMap((modifier) => {
+      if (!isUuid(modifier.i)) return [];
+      const available = availableModifiers.get(modifier.i!);
+      return available
+        ? [{ id: available.id, name: available.name, priceDelta: available.priceDelta }]
+        : [];
+    });
+
+    return [{
+      id: crypto.randomUUID(),
+      productId: product.productId,
+      productName: product.productName,
+      categoryName: product.categoryName,
+      quantity: Math.min(Math.max(Math.trunc(incoming.q) || 1, 1), 100),
+      unitPrice: variant?.price ?? product.unitPrice,
+      notes: [String(incoming.no ?? '').trim(), ...manualModifierNotes]
+        .filter(Boolean)
+        .join('; ')
+        .slice(0, 160),
+      variantId: variant?.id,
+      variantName: variant?.name,
+      modifiers: [...modifiers, ...manualModifiers],
+    }];
+  });
+
+  if (items.length !== payload.i.length) {
+    return {
+      respuesta: 'Uno o más productos del carrito web ya no están disponibles. Te derivo con el equipo para revisar el pedido antes de confirmarlo.',
+      moduloSiguiente: 'ATENCION',
+      moduloEjecutado: 'ATENCION',
+      requiereHumano: true,
+    };
+  }
+
+  const session: SesionPedidoCtx = {
+    ...(currentSession ?? {
+      id: crypto.randomUUID(),
+      conversacionId: msg.conversacionId,
+      moduloActual: 'CONFIRMACION',
+      estadoSesion: 'activa',
+      items: [],
+      intentosConfirmacion: 0,
+      ultimaActividadEn: new Date(),
+    }),
+    items,
+    modalidad: payload.x.t,
+    metodoPago: payload.x.pm,
+    nombreCliente: payload.x.cn.trim(),
+    telefonoCliente: msg.telefonoCliente ?? payload.x.cp,
+    costoDespacho: payload.x.t === 'despacho' ? Math.max(payload.x.df ?? 0, 0) : 0,
+    direccion: payload.x.t === 'despacho'
+      ? {
+          street: payload.x.as?.trim() ?? '',
+          district: payload.x.ad?.trim() ?? '',
+          reference: payload.x.ar?.trim() || undefined,
+        }
+      : undefined,
+  };
+
+  return {
+    respuesta: `Recibí tu carrito desde la web:\n${construirResumenPedido(session)}\nNombre: ${session.nombreCliente}\nEntrega: ${session.modalidad === 'despacho' ? `${session.direccion?.street}, ${session.direccion?.district}` : 'Retiro en local'}\nPago: ${session.metodoPago}\n\n¿Confirmas que creamos este pedido?`,
+    moduloSiguiente: 'CONFIRMACION',
+    moduloEjecutado: 'CONFIRMACION',
+    actualizarSesion: {
+      items: session.items,
+      modalidad: session.modalidad,
+      metodoPago: session.metodoPago,
+      nombreCliente: session.nombreCliente,
+      telefonoCliente: session.telefonoCliente,
+      costoDespacho: session.costoDespacho,
+      direccion: session.direccion,
+      estadoConversacional: actualizarEstado(session, {
+        fase: 'confirmacion_final',
+        ultimaPreguntaUtil: '¿Confirmas que creamos este pedido?',
+        webHandoffToken: payload.h ?? null,
+      }),
+    },
+  };
+}
 
 const SYSTEM_PROMPT_AGENTE_UNICO = `
 Eres Roly, el unico agente de atencion de Sushi Poke & Roll por WhatsApp.
@@ -294,8 +473,14 @@ async function responderEstadoOrden(sesion: SesionPedidoCtx): Promise<RespuestaM
     return { respuesta: `Tengo registrada tu orden ${sesion.externalOrderNumber ? `#${sesion.externalOrderNumber}` : ''}, pero no pude consultar el estado exacto en este momento. Te derivo con el equipo para revisarlo.`, requiereHumano: true, moduloSiguiente: 'ATENCION' };
   }
 
-  const estado = ESTADOS_ORDEN[orden.status] ?? orden.status;
-  return { respuesta: `Tu pedido #${orden.number} está ${estado}.` };
+  const operationalStatus = orden.kitchen_status ?? orden.status;
+  const estado = ESTADOS_ORDEN[operationalStatus] ?? operationalStatus;
+  const horaEta = formatearHoraEta(orden.estimated_ready_at);
+  const etaTexto =
+    horaEta && !['listo', 'entregado', 'cancelado'].includes(operationalStatus)
+      ? ` La hora estimada es ${horaEta}.`
+      : '';
+  return { respuesta: `Tu pedido #${orden.number} está ${estado}.${etaTexto}` };
 }
 
 async function responderSolicitudVisual(
@@ -661,8 +846,27 @@ async function resolverPagoYCrearOrden(
 
   try {
     const resultado = await crearOrdenWhatsApp(sesionCompleta);
+    const handoffToken = estadoBase(sesion).webHandoffToken;
+    if (handoffToken) {
+      await completarHandoffWeb(
+        handoffToken,
+        resultado.orderId,
+        telefonoCliente ?? '',
+      ).catch((error) => {
+        console.error(
+          '[agente-unico-whatsapp] No se pudo vincular handoff web:',
+          error instanceof Error ? error.message : error,
+        );
+      });
+    }
+    const horaEta = formatearHoraEta(resultado.estimatedReadyAt);
+    const etaTexto = horaEta
+      ? sesionCompleta.modalidad === 'despacho'
+        ? ` Estimamos que estará listo en cocina cerca de las ${horaEta}; luego coordinaremos el despacho.`
+        : ` Estimamos que estará listo para retirar cerca de las ${horaEta}.`
+      : ' En breve lo estaremos preparando.';
     return {
-      respuesta: `¡Pedido recibido! Tu número de orden es ${resultado.number}. En breve lo estaremos preparando.`,
+      respuesta: `¡Pedido recibido! Tu número de orden es ${resultado.number}.${etaTexto}`,
       moduloSiguiente: 'DAR_GRACIAS',
       moduloEjecutado: 'DAR_GRACIAS',
       actualizarSesion: {
@@ -674,6 +878,7 @@ async function resolverPagoYCrearOrden(
         estadoConversacional: actualizarEstado(sesion, {
           fase: 'orden_creada',
           ultimaPreguntaUtil: undefined,
+          estimatedReadyAt: resultado.estimatedReadyAt,
         }),
       },
     };
@@ -901,6 +1106,9 @@ export async function resolverPasoConversacional(
 ): Promise<RespuestaModulo> {
   const texto = msg.texto;
   const estado = estadoBase(sesion);
+
+  const webCart = await receiveWebCart(msg, sesion);
+  if (webCart) return webCart;
 
   if (pareceReclamo(texto)) {
     return respuestaHumano(sesion, 'Lamento mucho la mala experiencia. Te derivo con nuestro equipo para revisarlo y ayudarte bien. Un momento, por favor.');

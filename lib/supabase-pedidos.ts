@@ -289,12 +289,20 @@ export async function consultarEstadoOrden(orderId: string) {
     p_order_id: orderId,
   });
   if (error) return null;
-  const res = data as { ok?: boolean; id?: string; number?: string; status?: string; estimated_ready_at?: string | null };
+  const res = data as {
+    ok?: boolean;
+    id?: string;
+    number?: string;
+    status?: string;
+    kitchen_status?: string | null;
+    estimated_ready_at?: string | null;
+  };
   if (!res?.ok) return null;
   return {
     id: res.id!,
     number: res.number!,
     status: res.status!,
+    kitchen_status: res.kitchen_status ?? null,
     estimated_ready_at: res.estimated_ready_at ?? null,
   };
 }
@@ -315,5 +323,22 @@ export async function cancelarOrdenSupabase(
   });
 
   if (error) return false;
+  return (data as { ok?: boolean })?.ok === true;
+}
+
+export async function completarHandoffWeb(
+  token: string,
+  orderId: string,
+  customerPhone: string,
+) {
+  const { data, error } = await supabase.value.rpc(
+    'complete_storefront_whatsapp_handoff',
+    {
+      p_token: token,
+      p_order_id: orderId,
+      p_customer_phone: customerPhone.replace(/\D/g, ''),
+    },
+  );
+  if (error) throw new Error(error.message);
   return (data as { ok?: boolean })?.ok === true;
 }
