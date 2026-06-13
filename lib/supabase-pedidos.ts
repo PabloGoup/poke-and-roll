@@ -12,6 +12,8 @@ type CatalogoProductoRpc = {
   categoryName: string;
   unitPrice: number;
   status: 'activo' | 'inactivo';
+  isSoldOut?: boolean;
+  unavailableIngredients?: { id: string; name: string }[];
   imageUrl?: string | null;
   variants: { id: string; name: string; price: number }[];
   modifierGroups: {
@@ -40,7 +42,6 @@ function getSupabase(): SupabaseClient {
   // supabase-js ignoran el transport y leen globalThis.WebSocket directamente.
   if (typeof globalThis.WebSocket === 'undefined') {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
       (globalThis as Record<string, unknown>).WebSocket = require('ws');
     } catch {
       // ws no disponible — las llamadas REST/RPC igual funcionan
@@ -53,25 +54,46 @@ function getSupabase(): SupabaseClient {
 // Alias corto para el resto del archivo
 const supabase = { get value() { return getSupabase(); } };
 
-// Cache en memoria con TTL 5 minutos
+// Cache breve: la disponibilidad operativa debe propagarse rápidamente al bot.
 let catalogoCache: ProductoResuelto[] | null = null;
 let catalogoCacheAt = 0;
-const CACHE_TTL_MS = 5 * 60 * 1000;
+const CACHE_TTL_MS = 30 * 1000;
 
 export async function obtenerCatalogoProductos(): Promise<ProductoResuelto[]> {
   if (catalogoCache && Date.now() - catalogoCacheAt < CACHE_TTL_MS) {
     return catalogoCache;
   }
-  const { data, error } = await supabase.value.rpc('buscar_productos_activos');
-  if (error) throw new Error(`Error obteniendo catálogo: ${error.message}`);
+  const [catalogResponse, availabilityResponse] = await Promise.all([
+    supabase.value.rpc('buscar_productos_activos'),
+    supabase.value.rpc('get_storefront_availability'),
+  ]);
+  if (catalogResponse.error) {
+    throw new Error(`Error obteniendo catálogo: ${catalogResponse.error.message}`);
+  }
+  if (availabilityResponse.error) {
+    throw new Error(`Error obteniendo disponibilidad: ${availabilityResponse.error.message}`);
+  }
   // Mapear id → productId para compatibilidad con ItemCarritoWA
-  const productos = Array.isArray(data) ? (data as CatalogoProductoRpc[]) : [];
+  const productos = Array.isArray(catalogResponse.data)
+    ? (catalogResponse.data as CatalogoProductoRpc[])
+    : [];
+  const availability = new Map(
+    (Array.isArray(availabilityResponse.data)
+      ? availabilityResponse.data as Array<{
+          productId: string;
+          isSoldOut: boolean;
+          unavailableIngredients: { id: string; name: string }[];
+        }>
+      : []).map((entry) => [entry.productId, entry]),
+  );
   catalogoCache = productos.map((p) => ({
     productId: p.id,
     productName: p.name,
     categoryName: p.categoryName,
     unitPrice: p.unitPrice,
     status: p.status,
+    isSoldOut: availability.get(p.id)?.isSoldOut ?? false,
+    unavailableIngredients: availability.get(p.id)?.unavailableIngredients ?? [],
     imageUrl: p.imageUrl ?? null,
     variants: p.variants ?? [],
     modifierGroups: p.modifierGroups ?? [],
@@ -130,10 +152,19 @@ function normalizar(texto: string): string {
 
 export async function resolverItemsCarrito(
   items: { nombre: string; cantidad: number; notas?: string }[]
-): Promise<{ resueltos: ItemCarritoWA[]; noEncontrados: string[] }> {
+): Promise<{
+  resueltos: ItemCarritoWA[];
+  noEncontrados: string[];
+  noDisponibles: Array<{
+    nombre: string;
+    motivo: string;
+    alternativas: string[];
+  }>;
+}> {
   const catalogo = await obtenerCatalogoProductos();
   const resueltos: ItemCarritoWA[] = [];
   const noEncontrados: string[] = [];
+  const noDisponibles: Array<{ nombre: string; motivo: string; alternativas: string[] }> = [];
 
   for (const item of items) {
     // Aplicar sinónimos antes de normalizar (gohan → poke, bol → poke, etc.)
@@ -210,7 +241,12 @@ export async function resolverItemsCarrito(
       }
     }
 
-    if (producto && producto.status === 'activo') {
+    if (
+      producto &&
+      producto.status === 'activo' &&
+      !producto.isSoldOut &&
+      producto.unavailableIngredients.length === 0
+    ) {
       resueltos.push({
         id: crypto.randomUUID(),
         productId: producto.productId,
@@ -221,12 +257,28 @@ export async function resolverItemsCarrito(
         notes: item.notas ?? '',
         modifiers: [],
       });
+    } else if (producto) {
+      const ingredientes = producto.unavailableIngredients.map((entry) => entry.name);
+      const motivo = producto.isSoldOut
+        ? 'el producto está agotado temporalmente'
+        : `está agotado: ${ingredientes.join(', ')}`;
+      const alternativas = catalogo
+        .filter((entry) =>
+          entry.productId !== producto!.productId &&
+          entry.categoryName === producto!.categoryName &&
+          entry.status === 'activo' &&
+          !entry.isSoldOut &&
+          entry.unavailableIngredients.length === 0
+        )
+        .slice(0, 3)
+        .map((entry) => entry.productName);
+      noDisponibles.push({ nombre: producto.productName, motivo, alternativas });
     } else {
       noEncontrados.push(item.nombre);
     }
   }
 
-  return { resueltos, noEncontrados };
+  return { resueltos, noEncontrados, noDisponibles };
 }
 
 export async function crearOrdenWhatsApp(sesion: SesionPedidoCtx): Promise<ResultadoOrdenWA> {

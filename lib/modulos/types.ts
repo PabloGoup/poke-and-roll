@@ -161,6 +161,8 @@ export interface ProductoResuelto {
   categoryName: string;
   unitPrice: number;
   status: 'activo' | 'inactivo';
+  isSoldOut: boolean;
+  unavailableIngredients: { id: string; name: string }[];
   imageUrl?: string | null;
   variants: VarianteProducto[];
   modifierGroups: GrupoModificador[];

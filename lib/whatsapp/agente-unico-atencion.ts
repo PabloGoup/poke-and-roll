@@ -130,7 +130,12 @@ async function receiveWebCart(
   const productsById = new Map(catalog.map((product) => [product.productId, product]));
   const items = payload.i.flatMap((incoming) => {
     const product = productsById.get(incoming.p);
-    if (!product || product.status !== 'activo') return [];
+    if (
+      !product ||
+      product.status !== 'activo' ||
+      product.isSoldOut ||
+      product.unavailableIngredients.length > 0
+    ) return [];
 
     const variant = incoming.vi
       ? product.variants.find((entry) => entry.id === incoming.vi)
@@ -580,7 +585,18 @@ async function agregarItemPedido(msg: MensajeDespacho, sesion: SesionPedidoCtx |
     });
   }
 
-  const { resueltos, noEncontrados } = await resolverItemsCarrito([itemDetectado]);
+  const { resueltos, noEncontrados, noDisponibles } = await resolverItemsCarrito([itemDetectado]);
+  if (noDisponibles.length > 0) {
+    const unavailable = noDisponibles[0];
+    const alternatives = unavailable.alternativas.length
+      ? ` Te sugiero: ${unavailable.alternativas.join(', ')}.`
+      : ' ¿Quieres que te muestre otras alternativas disponibles?';
+    return conEstado(sesion, {
+      respuesta: `No puedo agregar ${unavailable.nombre} porque ${unavailable.motivo}.${alternatives}`,
+      moduloSiguiente: 'PEDIDOS',
+      moduloEjecutado: 'PEDIDOS',
+    }, 'pedido');
+  }
   if (noEncontrados.length > 0 || resueltos.length === 0) {
     return conEstado(sesion, {
       respuesta: `No encontré exactamente "${itemDetectado.nombre}" en el catálogo. ¿Quieres que te muestre alternativas disponibles?`,
