@@ -40,6 +40,8 @@ export const metadata: Metadata = {
       "Agentes IA que venden, atienden y agendan 24/7 en WhatsApp e Instagram."
   },
   icons: {
+    icon: "/images/logo_goup.png",
+    shortcut: "/images/logo_goup.png",
     apple: "/images/logo_goup.png"
   }
 };
