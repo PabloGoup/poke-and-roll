@@ -7,6 +7,7 @@ type ProductoCatalogo = {
   precio: number;
   variante?: string | null;
   modificadores?: string[];
+  agotado?: boolean;
 };
 
 type PromocionCatalogo = {
@@ -763,13 +764,11 @@ async function obtenerContextoSupabaseVentas(consulta: string): Promise<Contexto
 
   if (productos.length === 0 && promociones.length === 0) return null;
 
-  // Excluimos los agotados (directos o por ingrediente) para que el LLM
-  // nunca los ofrezca ni los confirme en una venta.
-  const productosDisponibles = productos.filter((p) =>
-    agotados ? !agotados.has(p.id) : !p.is_sold_out
-  );
-
-  const productosCatalogo = productosDisponibles.flatMap((p) => {
+  const productosCatalogo = productos.flatMap((p) => {
+    // Agotado: directo (is_sold_out) o por ingrediente sin stock. Lo marcamos
+    // en lugar de ocultarlo, para que el LLM diga "está agotado" y ofrezca
+    // alternativas, en vez de afirmar que el producto no existe.
+    const agotado = agotados ? agotados.has(p.id) : !!p.is_sold_out;
     const variantes = p.product_variants?.length ? p.product_variants : [null];
     const precioBase = numero(p.base_price);
     const modificadores = p.product_modifier_groups?.flatMap((g) =>
@@ -784,7 +783,8 @@ async function obtenerContextoSupabaseVentas(consulta: string): Promise<Contexto
         descripcion: p.description,
         precio: precioVariante > 0 ? precioVariante : precioBase,
         variante: variante?.name,
-        modificadores
+        modificadores,
+        agotado
       };
     });
   });
@@ -882,7 +882,10 @@ export function serializarContextoNegocio(contexto: ContextoNegocio) {
     .map((p) => {
       const variante = p.variante ? ` / ${p.variante}` : "";
       const modificadores = p.modificadores?.length ? ` Modificadores: ${p.modificadores.join(", ")}` : "";
-      return `- ${p.nombre}${variante} (${p.categoria}): ${formatearPrecio(p.precio)}${p.descripcion ? ` - ${p.descripcion}` : ""}${modificadores}`;
+      // El producto existe en el menú pero está sin stock: el agente debe
+      // informarlo como agotado y ofrecer alternativas, nunca venderlo.
+      const agotado = p.agotado ? " [AGOTADO - NO DISPONIBLE TEMPORALMENTE, NO TOMAR PEDIDO DE ESTE PRODUCTO, OFRECER ALTERNATIVAS]" : "";
+      return `- ${p.nombre}${variante} (${p.categoria}): ${formatearPrecio(p.precio)}${p.descripcion ? ` - ${p.descripcion}` : ""}${modificadores}${agotado}`;
     })
     .join("\n");
 
