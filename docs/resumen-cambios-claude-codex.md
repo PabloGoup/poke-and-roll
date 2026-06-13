@@ -1005,3 +1005,13 @@ Validación:
 - Regresión de aislamiento/deduplicación de reglas: OK.
 - `npx tsx scripts/regresion-agente-unico-whatsapp.ts`: OK.
 - `npm run build`: OK.
+
+## 26. Actualización 2026-06-12 — Orden editorial de la landing
+
+- El header mantiene exactamente sus dimensiones y aumenta su opacidad para mejorar contraste.
+- La navegación adopta una apariencia sobria tipo Apple: superficie continua, blur, enlaces sin cápsula y acciones jerarquizadas.
+- La narrativa se ordenó como producto, experiencia en vivo, centro de control, funcionamiento, soluciones, arquitectura y conversión.
+- Se conservaron todos los componentes y demostraciones existentes.
+- Los encabezados de sección pasan a alineación izquierda.
+- Se eliminaron degradados tipográficos en favor de texto sólido y naranja Goup como acento.
+- Las secciones se separan mediante superficies oscuras sólidas, sin añadir decoración nueva.

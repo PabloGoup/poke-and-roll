@@ -9,12 +9,38 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Goup Soluciones",
-  description: "La plataforma de IA para tu negocio. Automatiza WhatsApp, Instagram y Facebook.",
+  title: {
+    default: "Goup Soluciones — Empleados digitales con IA para tu negocio",
+    template: "%s · Goup Soluciones"
+  },
+  description:
+    "Automatizamos ventas, atención al cliente, reservas y operaciones con agentes IA entrenados para tu negocio. WhatsApp, Instagram y Meta, trabajando 24/7.",
+  keywords: [
+    "agentes IA",
+    "automatización WhatsApp",
+    "WhatsApp Business API",
+    "chatbot Instagram",
+    "CRM inteligente",
+    "automatización de ventas",
+    "atención al cliente IA",
+    "Chile"
+  ],
+  openGraph: {
+    title: "Goup Soluciones — Empleados digitales con IA",
+    description:
+      "Tu negocio no necesita más personal. Necesita inteligencia artificial. Agentes IA que venden, atienden y agendan 24/7.",
+    type: "website",
+    locale: "es_CL",
+    siteName: "Goup Soluciones"
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Goup Soluciones — Empleados digitales con IA",
+    description:
+      "Agentes IA que venden, atienden y agendan 24/7 en WhatsApp e Instagram."
+  },
   icons: {
-    icon: "/images/goup.png",
-    shortcut: "/images/goup.png",
-    apple: "/images/goup.png"
+    apple: "/images/logo_goup.png"
   }
 };
 
