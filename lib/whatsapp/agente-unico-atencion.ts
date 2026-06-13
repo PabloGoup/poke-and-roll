@@ -133,8 +133,7 @@ async function receiveWebCart(
     if (
       !product ||
       product.status !== 'activo' ||
-      product.isSoldOut ||
-      product.unavailableIngredients.length > 0
+      product.isSoldOut
     ) return [];
 
     const variant = incoming.vi
@@ -588,14 +587,25 @@ async function agregarItemPedido(msg: MensajeDespacho, sesion: SesionPedidoCtx |
   const { resueltos, noEncontrados, noDisponibles } = await resolverItemsCarrito([itemDetectado]);
   if (noDisponibles.length > 0) {
     const unavailable = noDisponibles[0];
-    const alternatives = unavailable.alternativas.length
-      ? ` Te sugiero: ${unavailable.alternativas.join(', ')}.`
-      : ' ¿Quieres que te muestre otras alternativas disponibles?';
+    const alternatives = unavailable.item && unavailable.ingrediente && unavailable.reemplazo
+      ? ` Puedo cambiar ${unavailable.ingrediente} por ${unavailable.reemplazo} sin costo. ¿Confirmas ese cambio?`
+      : unavailable.alternativas.length
+        ? ` Te sugiero: ${unavailable.alternativas.join(', ')}.`
+        : ' ¿Quieres que te muestre otras alternativas disponibles?';
     return conEstado(sesion, {
-      respuesta: `No puedo agregar ${unavailable.nombre} porque ${unavailable.motivo}.${alternatives}`,
+      respuesta: `${unavailable.nombre} tiene un ingrediente agotado: ${unavailable.motivo}.${alternatives}`,
       moduloSiguiente: 'PEDIDOS',
       moduloEjecutado: 'PEDIDOS',
-    }, 'pedido');
+    }, 'pedido', unavailable.item && unavailable.ingrediente && unavailable.reemplazo
+      ? {
+          sustitucionAgotadoPendiente: {
+            item: unavailable.item,
+            ingrediente: unavailable.ingrediente,
+            reemplazo: unavailable.reemplazo,
+          },
+          ultimaPreguntaUtil: `¿Confirmas cambiar ${unavailable.ingrediente} por ${unavailable.reemplazo}?`,
+        }
+      : undefined);
   }
   if (noEncontrados.length > 0 || resueltos.length === 0) {
     return conEstado(sesion, {
@@ -1125,6 +1135,24 @@ export async function resolverPasoConversacional(
 
   const webCart = await receiveWebCart(msg, sesion);
   if (webCart) return webCart;
+
+  if (
+    sesion &&
+    estado.sustitucionAgotadoPendiente &&
+    (esAfirmacion(texto) || esConfirmacionExplicita(texto))
+  ) {
+    const pending = estado.sustitucionAgotadoPendiente;
+    return conEstado(sesion, {
+      respuesta: `Perfecto. Agregué ${pending.item.productName} cambiando ${pending.ingrediente} por ${pending.reemplazo}. El cambio quedó anotado para cocina. ¿Quieres agregar algo más o cerramos el pedido?`,
+      moduloSiguiente: 'PEDIDOS',
+      moduloEjecutado: 'PEDIDOS',
+      actualizarSesion: { items: [...sesion.items, pending.item] },
+    }, 'pedido', {
+      productoEnFoco: pending.item.productName,
+      sustitucionAgotadoPendiente: null,
+      ultimaPreguntaUtil: '¿Quieres agregar algo más o cerramos el pedido?',
+    });
+  }
 
   if (pareceReclamo(texto)) {
     return respuestaHumano(sesion, 'Lamento mucho la mala experiencia. Te derivo con nuestro equipo para revisarlo y ayudarte bien. Un momento, por favor.');

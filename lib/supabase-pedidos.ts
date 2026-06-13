@@ -161,12 +161,22 @@ export async function resolverItemsCarrito(
     nombre: string;
     motivo: string;
     alternativas: string[];
+    item?: ItemCarritoWA;
+    ingrediente?: string;
+    reemplazo?: string;
   }>;
 }> {
   const catalogo = await obtenerCatalogoProductos();
   const resueltos: ItemCarritoWA[] = [];
   const noEncontrados: string[] = [];
-  const noDisponibles: Array<{ nombre: string; motivo: string; alternativas: string[] }> = [];
+  const noDisponibles: Array<{
+    nombre: string;
+    motivo: string;
+    alternativas: string[];
+    item?: ItemCarritoWA;
+    ingrediente?: string;
+    reemplazo?: string;
+  }> = [];
 
   for (const item of items) {
     // Aplicar sinónimos antes de normalizar (gohan → poke, bol → poke, etc.)
@@ -274,7 +284,48 @@ export async function resolverItemsCarrito(
         )
         .slice(0, 3)
         .map((entry) => entry.productName);
-      noDisponibles.push({ nombre: producto.productName, motivo, alternativas });
+      const replacementByIngredient: Record<string, string> = {
+        Pollo: 'Kanikama',
+        Camarón: 'Pollo',
+        Salmón: 'Pollo',
+        Kanikama: 'Pollo',
+        Palta: 'Queso crema',
+        'Queso crema': 'Palta',
+        Pepino: 'Palmito',
+        Palmito: 'Pepino',
+        Champiñón: 'Pepino',
+      };
+      const substitutions = ingredientes.map((ingrediente) => ({
+        ingrediente,
+        reemplazo: replacementByIngredient[ingrediente] ?? 'Kanikama',
+      }));
+      const ingrediente = substitutions.map((entry) => entry.ingrediente).join(', ');
+      const reemplazo = substitutions.map((entry) => entry.reemplazo).join(', ');
+      const substitutionNotes = substitutions.map(
+        (entry) => `Cambio por agotado: ${entry.ingrediente} -> ${entry.reemplazo}`,
+      );
+      noDisponibles.push({
+        nombre: producto.productName,
+        motivo,
+        alternativas,
+        ingrediente,
+        reemplazo,
+        item: substitutions.length
+          ? {
+              id: crypto.randomUUID(),
+              productId: producto.productId,
+              productName: producto.productName,
+              categoryName: producto.categoryName,
+              quantity: item.cantidad,
+              unitPrice: producto.unitPrice,
+              notes: substitutionNotes.join(' | '),
+              modifiers: substitutionNotes.map((name) => ({
+                name,
+                priceDelta: 0,
+              })),
+            }
+          : undefined,
+      });
     } else {
       noEncontrados.push(item.nombre);
     }

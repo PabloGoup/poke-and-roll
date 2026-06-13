@@ -87,6 +87,11 @@ export interface EstadoConversacionalWA {
     recargo: number;
     nota: string;
   } | null;
+  sustitucionAgotadoPendiente?: {
+    item: ItemCarritoWA;
+    ingrediente: string;
+    reemplazo: string;
+  } | null;
   ultimaPreguntaUtil?: string;
   intencionVisualAtendida?: string | null;
   estimatedReadyAt?: string | null;
