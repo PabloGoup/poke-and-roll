@@ -9,7 +9,6 @@ import {
   Search,
   Send,
   ShoppingBag,
-  UserPlus,
   CalendarCheck,
   Sparkles
 } from "lucide-react";
@@ -94,10 +93,10 @@ const INTENTS: Intent[] = [
 const FALLBACK: Intent = {
   match: () => true,
   reply:
-    "Buena pregunta 🤔. Puedo resolverla con la información de tu negocio, y si es algo sensible la escalo a tu equipo con todo el contexto. Prueba pidiéndome un pedido o una reserva.",
+    "Esto es un demo, así que por ahora respondo solo las consultas sugeridas (saludo, pedidos, delivery y reservas) 👆. El agente real responde cualquier pregunta de tu negocio con tu catálogo, precios y reglas. Toca «Agendar reunión» y te hacemos un demo completo a tu medida 🚀",
   steps: [
-    { icon: Search, label: "Analizando intención", detail: "Clasificación semántica" },
-    { icon: UserPlus, label: "Protocolo de escalamiento", detail: "Listo si se requiere humano" }
+    { icon: Sparkles, label: "Demo con respuestas acotadas", detail: "Solo las consultas de muestra" },
+    { icon: CalendarCheck, label: "Demo completo disponible", detail: "Reunión de 30 min con tu negocio" }
   ]
 };
 

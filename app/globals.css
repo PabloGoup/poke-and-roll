@@ -1062,6 +1062,14 @@ blockquote { margin: 0 0 6px; color: var(--muted); font-size: 13px; line-height:
   position: relative;
 }
 
+/* Solo en el landing: el fondo claro del POS (--bg) asomaba como una franja
+   blanca al hacer overscroll o en el safe-area del móvil, bajo el footer.
+   Forzamos fondo oscuro en html/body únicamente cuando el landing está montado. */
+html:has(.goup-page),
+body:has(.goup-page) {
+  background: #030110;
+}
+
 /* Noise grain overlay — GPU layer via transform to avoid repaints on scroll */
 .goup-page::before {
   content: "";
