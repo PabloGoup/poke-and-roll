@@ -359,6 +359,27 @@ function esAfirmacion(texto: string) {
   return /^(si|sí|sii|siii|sip|sipo|yapo|yapo|ya po|dale|ok|oka|okay|correcto|confirmo|confirmado|exacto|por favor|si por favor|sí por favor|ya|listo)$/.test(n);
 }
 
+function detectarReemplazoAgotado(texto: string) {
+  const normalized = normalizarTexto(texto).replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  const match = normalized.match(
+    /\b(?:cambiar(?:lo|la)?\s+)?(?:por|mejor)\s+(pollo|kanikama|palmito|pepino|champinon|queso crema|queso|palta|camaron|salmon)\b/,
+  );
+  if (!match) return null;
+  const labels: Record<string, string> = {
+    pollo: 'Pollo',
+    kanikama: 'Kanikama',
+    palmito: 'Palmito',
+    pepino: 'Pepino',
+    champinon: 'Champiñón',
+    'queso crema': 'Queso crema',
+    queso: 'Queso crema',
+    palta: 'Palta',
+    camaron: 'Camarón',
+    salmon: 'Salmón',
+  };
+  return labels[match[1]] ?? null;
+}
+
 function esConfirmacionFinalClara(texto: string) {
   const n = normalizarTexto(texto).replace(/[^\w\s]/g, '').trim();
   return /^(si|sí|sii|siii|sip|sipo|confirmo|confirmado|lo quiero|dejalo|déjalo|vamos|proceda|si por favor|sí por favor|ok confirmado|dale confirmado)$/.test(n)
@@ -1135,6 +1156,45 @@ export async function resolverPasoConversacional(
 
   const webCart = await receiveWebCart(msg, sesion);
   if (webCart) return webCart;
+
+  if (sesion && estado.sustitucionAgotadoPendiente) {
+    const requestedReplacement = detectarReemplazoAgotado(texto);
+    if (requestedReplacement) {
+      const catalog = await obtenerCatalogoProductos();
+      const soldOutIngredients = new Set(
+        catalog.flatMap((product) =>
+          product.unavailableIngredients.map((ingredient) => ingredient.name),
+        ),
+      );
+      if (soldOutIngredients.has(requestedReplacement)) {
+        return conEstado(sesion, {
+          respuesta: `${requestedReplacement} también está agotado. Puedes elegir otro reemplazo, por ejemplo pollo, kanikama, palmito, pepino, champiñón, queso crema o palta.`,
+          moduloSiguiente: 'PEDIDOS',
+          moduloEjecutado: 'PEDIDOS',
+        }, 'pedido');
+      }
+
+      const pending = estado.sustitucionAgotadoPendiente;
+      const note = `Cambio por agotado: ${pending.ingrediente} -> ${requestedReplacement}`;
+      const updatedItem = {
+        ...pending.item,
+        notes: note,
+        modifiers: [{ name: note, priceDelta: 0 }],
+      };
+      return conEstado(sesion, {
+        respuesta: `Perfecto, cambiaré ${pending.ingrediente} por ${requestedReplacement} en ${pending.item.productName}. ¿Confirmas para agregarlo al pedido?`,
+        moduloSiguiente: 'PEDIDOS',
+        moduloEjecutado: 'PEDIDOS',
+      }, 'pedido', {
+        sustitucionAgotadoPendiente: {
+          item: updatedItem,
+          ingrediente: pending.ingrediente,
+          reemplazo: requestedReplacement,
+        },
+        ultimaPreguntaUtil: `¿Confirmas cambiar ${pending.ingrediente} por ${requestedReplacement}?`,
+      });
+    }
+  }
 
   if (
     sesion &&
