@@ -691,8 +691,11 @@ function pedirPagoNombre(sesion: SesionPedidoCtx): RespuestaModulo {
     moduloEjecutado: 'FORMAS_PAGO',
     actualizarSesion: {
       modalidad: 'retiro_local',
+      direccion: undefined,
+      costoDespacho: 0,
       estadoConversacional: actualizarEstado(sesion, {
         fase: 'pago',
+        aclaracionPendiente: null,
         ultimaPreguntaUtil: '¿A nombre de quién queda y cómo deseas pagar?',
       }),
     },
@@ -1156,6 +1159,20 @@ export async function resolverPasoConversacional(
 
   const webCart = await receiveWebCart(msg, sesion);
   if (webCart) return webCart;
+
+  const requestedDeliveryMode = detectarModalidad(texto);
+  if (
+    sesion?.items?.length &&
+    requestedDeliveryMode === 'retiro_local' &&
+    (
+      estado.fase === 'entrega' ||
+      estado.fase === 'direccion' ||
+      estado.aclaracionPendiente?.tipo === 'entrega' ||
+      sesion.modalidad === 'despacho'
+    )
+  ) {
+    return pedirPagoNombre(sesion);
+  }
 
   if (sesion && estado.sustitucionAgotadoPendiente) {
     const requestedReplacement = detectarReemplazoAgotado(texto);
