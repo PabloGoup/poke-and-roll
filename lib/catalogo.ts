@@ -38,6 +38,8 @@ type MedioPagoCatalogo = {
 };
 
 type ProductoPosRow = {
+  id: string;
+  is_sold_out?: boolean | null;
   name: string;
   product_categories?: { name: string | null } | null;
   description: string | null;
@@ -673,12 +675,51 @@ async function supabaseGet<T>(table: string, options: SupabaseRequestOptions = {
   return response.json() as Promise<T[]>;
 }
 
+// IDs de productos agotados, según la disponibilidad operativa de la BD. Un
+// producto se considera agotado si está marcado directamente (is_sold_out) o si
+// alguno de sus ingredientes de receta está sin stock (unavailableIngredients).
+// Se usa para que el LLM no ofrezca ni "venda" productos no disponibles.
+async function obtenerProductosAgotados(): Promise<Set<string>> {
+  const config = supabaseVentasConfig();
+  if (!config) return new Set();
+
+  const response = await fetch(`${config.url}/rest/v1/rpc/get_storefront_availability`, {
+    method: "POST",
+    headers: {
+      apikey: config.key,
+      Authorization: `Bearer ${config.key}`,
+      "Content-Type": "application/json",
+      Accept: "application/json"
+    },
+    body: "{}",
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    throw new Error(`Supabase ventas get_storefront_availability: ${response.status}`);
+  }
+
+  const disponibilidad = (await response.json()) as Array<{
+    productId: string;
+    isSoldOut: boolean;
+    unavailableIngredients: Array<{ id: string; name: string }>;
+  }>;
+
+  return new Set(
+    disponibilidad
+      .filter((p) => p.isSoldOut || (p.unavailableIngredients?.length ?? 0) > 0)
+      .map((p) => p.productId)
+  );
+}
+
 async function obtenerContextoSupabaseVentas(consulta: string): Promise<ContextoNegocio | null> {
   if (!supabaseVentasConfig()) return null;
 
-  const [productos, promociones, zonasDespacho, settings] = await Promise.all([
+  const [productos, promociones, zonasDespacho, settings, agotados] = await Promise.all([
     supabaseGet<ProductoPosRow>("products", {
       select: [
+        "id",
+        "is_sold_out",
         "name",
         "description",
         "base_price",
@@ -714,12 +755,21 @@ async function obtenerContextoSupabaseVentas(consulta: string): Promise<Contexto
         "order": "created_at.desc",
         "limit": "1"
       }
-    }).catch(() => [])
+    }).catch(() => []),
+    // Si falla la disponibilidad, no bloqueamos el catálogo: caemos al
+    // flag is_sold_out de cada fila como respaldo.
+    obtenerProductosAgotados().catch(() => null)
   ]);
 
   if (productos.length === 0 && promociones.length === 0) return null;
 
-  const productosCatalogo = productos.flatMap((p) => {
+  // Excluimos los agotados (directos o por ingrediente) para que el LLM
+  // nunca los ofrezca ni los confirme en una venta.
+  const productosDisponibles = productos.filter((p) =>
+    agotados ? !agotados.has(p.id) : !p.is_sold_out
+  );
+
+  const productosCatalogo = productosDisponibles.flatMap((p) => {
     const variantes = p.product_variants?.length ? p.product_variants : [null];
     const precioBase = numero(p.base_price);
     const modificadores = p.product_modifier_groups?.flatMap((g) =>
